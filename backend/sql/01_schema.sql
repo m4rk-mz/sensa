@@ -1,6 +1,6 @@
 -- Sensa: esquema de base de datos (PostgreSQL / Supabase)
 -- Ejecutar en el SQL Editor de Supabase antes de levantar el backend.
--- Orden: 01_schema.sql -> 02_seed_demo.sql (opcional) -> scripts/seed_admin.py
+-- Orden: 01_schema.sql -> scripts/seed_admin.py -> 02_pruebas.sql (opcional, demo)
 
 -- ---------------------------------------------------------------------------
 -- Extensiones
