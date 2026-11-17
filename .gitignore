@@ -1,0 +1,33 @@
+# Secretos
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Flutter / Dart
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/ios/Pods/
+frontend/android/.gradle/
+frontend/android/local.properties
+*.iml
+
+# Arduino / PlatformIO
+firmware/.pio/
+firmware/.vscode/
+firmware/build/
+firmware/secrets.h
+
+# Editores y sistema
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
