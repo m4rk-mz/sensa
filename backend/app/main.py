@@ -49,10 +49,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# La API no usa cookies: la sesión viaja en el encabezado Authorization. Por eso
+# no se permiten credenciales; los navegadores rechazan "*" combinado con ellas.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins or ["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
