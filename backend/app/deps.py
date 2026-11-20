@@ -7,16 +7,18 @@ negocio.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import Depends, Header, HTTPException, Path, status
 
 from app import security
 from app.models.device import Sensor
+from app.models.common import UUID_REGEX
 from app.models.user import Usuario
 from app.repositories import devices as repo_devices
 from app.repositories import users as repo_users
 
+IdRuta = Annotated[str, Path(pattern=UUID_REGEX)]
 NO_AUTORIZADO = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
     detail="Sesión inválida o expirada.",
@@ -63,7 +65,7 @@ def negocio_permitido(business_id: str, usuario: Usuario) -> None:
 
 
 def sensor_del_usuario(
-    device_id: str = Path(...), usuario: Usuario = Depends(usuario_actual)
+    device_id: IdRuta, usuario: Usuario = Depends(usuario_actual)
 ) -> Sensor:
     """Carga un sensor comprobando que pertenezca al negocio del usuario."""
     sensor = repo_devices.por_id(device_id)
@@ -77,7 +79,7 @@ def sensor_del_usuario(
 # Sensores (ESP32)
 # --------------------------------------------------------------------------
 def sensor_autenticado(
-    device_id: str = Path(...),
+    device_id: IdRuta,
     x_device_token: Optional[str] = Header(default=None),
 ) -> Sensor:
     """Autentica al nodo por su token.
