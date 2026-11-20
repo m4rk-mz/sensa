@@ -1,0 +1,20 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+pubspec.lock
+
+# Carpetas que genera "flutter create ." (no se versionan en este monorepo)
+android/
+ios/
+web/
+linux/
+macos/
+windows/
+
+# Editores
+.idea/
+*.iml
+.vscode/
