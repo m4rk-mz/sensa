@@ -19,9 +19,6 @@ class ColoresSensa {
   static const Color verde = Color(0xFF0D5F56);
   static const Color verdeTenue = Color(0xFFDDEFEB);
 
-  /// Pantalla LCD del nodo (1602 con retroiluminación azul).
-  static const Color lcdFondo = Color(0xFF0B2E4F);
-  static const Color lcdTexto = Color(0xFFDCF3FF);
 }
 
 ThemeData temaSensa() {

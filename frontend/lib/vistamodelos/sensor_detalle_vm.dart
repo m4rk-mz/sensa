@@ -3,13 +3,11 @@ import 'dart:async';
 import '../core/config.dart';
 import '../core/validaciones.dart';
 import '../modelos/comando.dart';
-import '../modelos/lineas_lcd.dart';
 import '../modelos/sensor.dart';
 import '../servicios/sensa_api.dart';
 import 'base_vm.dart';
 
-/// VistaModelo del detalle de un sensor: lectura, lo que muestra la LCD del
-/// nodo, control del LED y umbral.
+/// VistaModelo del detalle de un sensor: lectura, control del LED y umbral.
 class SensorDetalleVm extends BaseVm {
   SensorDetalleVm({required this.api, required this.deviceId});
 
@@ -24,13 +22,6 @@ class SensorDetalleVm extends BaseVm {
   SensorEstado? get estado => _estado;
   Comando? get ultimoComando => _ultimoComando;
   bool get enviandoComando => _enviandoComando;
-
-  /// Las pantallas que el nodo muestra en su LCD 1602. En alerta son dos y
-  /// el nodo las alterna cada 3 s; fuera de alerta es una sola.
-  List<VistaLcd> get vistasLcd =>
-      _estado == null ? const <VistaLcd>[] : LineasLcd.de(_estado!);
-
-  bool get alternaLcd => vistasLcd.length > 1;
 
   Future<void> cargar({bool silencioso = false}) async {
     final resultado = await ejecutar(

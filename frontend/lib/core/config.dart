@@ -17,8 +17,4 @@ class Config {
 
   /// Cada cuánto se refresca el detalle de un sensor.
   static const Duration refrescoDetalle = Duration(seconds: 10);
-
-  /// Cada cuánto alterna la LCD del nodo cuando hay alerta (igual que el
-  /// firmware).
-  static const Duration alternanciaLcd = Duration(seconds: 3);
 }
