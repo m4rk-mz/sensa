@@ -42,7 +42,9 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 Desde Android 9, una app no puede hablar por `http://` a menos que lo
 permitas. El backend de la demo corre sin TLS, así que hay que habilitarlo
-en el manifiesto de depuración. Abre
+en el manifiesto de depuración (solo si usas `http://`, por ejemplo una PC en
+la red local; con Render por `https://` no hace falta). El permiso `INTERNET`
+siempre es necesario, así que no lo quites al editar el archivo. Abre
 `android/app/src/debug/AndroidManifest.xml` (lo crea `flutter create`) y
 deja la etiqueta `application` así:
 
