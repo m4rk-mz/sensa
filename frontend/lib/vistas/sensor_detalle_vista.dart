@@ -8,10 +8,8 @@ import '../modelos/sensor.dart';
 import '../tema.dart';
 import '../vistamodelos/sensor_detalle_vm.dart';
 import 'widgets/comunes.dart';
-import 'widgets/lcd_nodo.dart';
 
-/// Detalle de un sensor: lectura, lo que muestra la LCD del nodo, control
-/// del LED y umbral.
+/// Detalle de un sensor: lectura, control del LED y umbral.
 class SensorDetalleVista extends StatelessWidget {
   const SensorDetalleVista({super.key, required this.nombreInicial});
 
@@ -81,9 +79,6 @@ class SensorDetalleVista extends StatelessWidget {
               ),
               const SizedBox(height: 13),
 
-              _TarjetaNodo(vm: vm, estado: estado),
-              const SizedBox(height: 13),
-
               _TarjetaLed(vm: vm, estado: estado),
               const SizedBox(height: 13),
 
@@ -147,107 +142,6 @@ class _AvisoAlerta extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// "Lo que se ve en el nodo": la LCD 1602, el zumbador y el LED.
-class _TarjetaNodo extends StatelessWidget {
-  const _TarjetaNodo({required this.vm, required this.estado});
-
-  final SensorDetalleVm vm;
-  final SensorEstado estado;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tarjeta(
-      hijo: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Expanded(
-                child: Text(
-                  'Lo que se ve en el nodo',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-              if (vm.alternaLcd)
-                const Text(
-                  'alterna cada 3 s',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: ColoresSensa.tintaTenue,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 11),
-          LcdNodo(vistas: vm.vistasLcd),
-          const SizedBox(height: 11),
-          _Senal(
-            encendida: estado.alerta,
-            texto: estado.alerta
-                ? 'Zumbador sonando y LED rojo encendido'
-                : 'Zumbador en silencio',
-          ),
-          const SizedBox(height: 6),
-          _Senal(
-            encendida: estado.ledEstadoReal,
-            texto: estado.ledEstadoReal
-                ? 'El nodo reporta su LED encendido'
-                : 'El nodo reporta su LED apagado',
-          ),
-          if (estado.alerta) ...[
-            const SizedBox(height: 10),
-            const Text(
-              'En alerta, la LCD intercala el aviso con el umbral y la '
-              'lectura. Lo hace el firmware con el umbral que trae '
-              'guardado, así que sigue avisando aunque se caiga la red.',
-              style: TextStyle(
-                fontSize: 12.5,
-                height: 1.5,
-                color: Color(0xFF3A3747),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _Senal extends StatelessWidget {
-  const _Senal({required this.encendida, required this.texto});
-
-  final bool encendida;
-  final String texto;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 9,
-          height: 9,
-          decoration: BoxDecoration(
-            color: encendida ? ColoresSensa.ambar : Colors.transparent,
-            border: Border.all(
-              color: encendida ? ColoresSensa.ambar : ColoresSensa.tintaTenue,
-              width: 1.5,
-            ),
-            borderRadius: BorderRadius.circular(999),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            texto,
-            style: const TextStyle(fontSize: 12.5, color: Color(0xFF3A3747)),
-          ),
-        ),
-      ],
     );
   }
 }

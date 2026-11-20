@@ -209,8 +209,7 @@ class TarjetaSensor extends StatelessWidget {
     }
     if (estado.alerta) {
       return 'Pasó el umbral de ${estado.umbralC.toStringAsFixed(1)} °C. El '
-          'nodo lo está avisando en el lugar: LED rojo, zumbador y aviso en '
-          'la pantalla.';
+          'nodo lo está avisando en el lugar con el LED rojo y el zumbador.';
     }
     if (estado.esManual) {
       return 'En modo manual: el LED está forzado desde la app. Vuelve a '

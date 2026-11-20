@@ -40,7 +40,7 @@ class Sensor {
 }
 
 /// Lo que devuelve GET /devices y GET /devices/{id}: el sensor más su última
-/// lectura y el estado del LED, listo para pintar la pantalla.
+/// lectura y el estado del LED, listo para pintar el detalle del sensor.
 class SensorEstado {
   const SensorEstado({
     required this.sensor,
