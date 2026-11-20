@@ -1,5 +1,5 @@
 name: sensa_app
-description: App móvil de Sensa: monitoreo de temperatura y humedad por negocio.
+description: "App móvil de Sensa: monitoreo de temperatura y humedad por negocio."
 publish_to: "none"
 version: 1.0.0+1
 
