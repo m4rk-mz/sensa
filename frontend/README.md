@@ -38,10 +38,33 @@ cd ../backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-En Android, para que el emulador acepte `http://` sin TLS, `flutter create`
-ya deja el `AndroidManifest.xml` con `usesCleartextTraffic` en depuración.
-Si usas un teléfono físico y no conecta, revisa que la computadora y el
-teléfono estén en la misma red y que el firewall permita el puerto 8000.
+### Android bloquea HTTP sin TLS
+
+Desde Android 9, una app no puede hablar por `http://` a menos que lo
+permitas. El backend de la demo corre sin TLS, así que hay que habilitarlo
+en el manifiesto de depuración. Abre
+`android/app/src/debug/AndroidManifest.xml` (lo crea `flutter create`) y
+deja la etiqueta `application` así:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <application android:usesCleartextTraffic="true" />
+</manifest>
+```
+
+Queda solo en el build de depuración, que es el que se usa para la demo.
+Síntoma de que falta: la app abre pero el login responde "No se pudo
+conectar con el servidor".
+
+Otras dos cosas que tumban la conexión:
+
+- **uvicorn escuchando solo en localhost.** Levántalo con
+  `--host 0.0.0.0`, no con el valor por omisión.
+- **Teléfono físico en otra red o firewall cerrado.** El teléfono y la
+  computadora tienen que estar en la misma red y el puerto 8000 abierto.
+  Para comprobarlo rápido, abre `http://<ip-de-la-compu>:8000/health` en el
+  navegador del teléfono: debe responder `{"estado":"ok", ...}`.
 
 ### Cuentas de prueba
 
