@@ -1,0 +1,40 @@
+# Despliegue del backend de Sensa en Render (Blueprint).
+# Render -> New -> Blueprint -> elegir este repo. Los valores marcados con
+# sync: false se piden en el panel de Render y nunca se suben al repo.
+
+services:
+  - type: web
+    name: sensa-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /docs
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXP_MINUTES
+        value: "720"
+      - key: MANUAL_MODE_MINUTES
+        value: "30"
+      - key: COMMAND_TIMEOUT_SECONDS
+        value: "15"
+      - key: DEFAULT_THRESHOLD_C
+        value: "27.0"
+      - key: TIMEZONE
+        value: America/Mexico_City
+      - key: DAILY_REPORT_HOUR
+        value: "0"
+      - key: DAILY_REPORT_MINUTE
+        value: "10"
+      - key: ENABLE_SCHEDULER
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "*"
