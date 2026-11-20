@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app import security
-from app.deps import admin_actual, negocio_permitido, usuario_actual
+from app.deps import IdRuta, admin_actual, negocio_permitido, usuario_actual
 from app.models.business import Negocio, NegocioAltaEntrada
 from app.models.common import Rol
 from app.models.device import Sensor, SensorAltaEntrada, SensorAltaSalida
@@ -38,6 +38,15 @@ def crear_negocio(
             status_code=status.HTTP_409_CONFLICT,
             detail="Ya existe un negocio con ese nombre.",
         )
+    # Se revisa el correo del usuario inicial antes de crear nada: si ya
+    # existe, no debe quedar un negocio a medias.
+    if datos.usuario_inicial is not None and repo_users.email_existe(
+        str(datos.usuario_inicial.email)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ese correo ya está registrado.",
+        )
     negocio = repo_businesses.crear(datos.nombre)
     if negocio is None:
         raise HTTPException(
@@ -61,7 +70,7 @@ def listar_negocios(usuario: Usuario = Depends(usuario_actual)) -> list[Negocio]
 
 @router.get("/{business_id}", response_model=Negocio)
 def obtener_negocio(
-    business_id: str, usuario: Usuario = Depends(usuario_actual)
+    business_id: IdRuta, usuario: Usuario = Depends(usuario_actual)
 ) -> Negocio:
     negocio_permitido(business_id, usuario)
     return _negocio_o_404(business_id)
@@ -100,7 +109,7 @@ def _crear_usuario_de_negocio(
     status_code=status.HTTP_201_CREATED,
 )
 def crear_usuario(
-    business_id: str,
+    business_id: IdRuta,
     datos: UsuarioAltaEntrada,
     _admin: Usuario = Depends(admin_actual),
 ) -> UsuarioSalida:
@@ -110,7 +119,7 @@ def crear_usuario(
 
 @router.get("/{business_id}/users", response_model=list[UsuarioSalida])
 def listar_usuarios(
-    business_id: str, usuario: Usuario = Depends(usuario_actual)
+    business_id: IdRuta, usuario: Usuario = Depends(usuario_actual)
 ) -> list[UsuarioSalida]:
     negocio_permitido(business_id, usuario)
     _negocio_o_404(business_id)
@@ -126,7 +135,7 @@ def listar_usuarios(
     status_code=status.HTTP_201_CREATED,
 )
 def registrar_sensor(
-    business_id: str,
+    business_id: IdRuta,
     datos: SensorAltaEntrada,
     _admin: Usuario = Depends(admin_actual),
 ) -> SensorAltaSalida:
@@ -158,7 +167,7 @@ def registrar_sensor(
 
 @router.get("/{business_id}/devices", response_model=list[Sensor])
 def listar_sensores(
-    business_id: str, usuario: Usuario = Depends(usuario_actual)
+    business_id: IdRuta, usuario: Usuario = Depends(usuario_actual)
 ) -> list[Sensor]:
     """Un usuario solo ve los sensores de su negocio.
 

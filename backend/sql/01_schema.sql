@@ -76,8 +76,9 @@ create index if not exists devices_business_idx on devices(business_id);
 -- ---------------------------------------------------------------------------
 -- readings
 -- Rangos del DHT11 (datasheet): 0 a 50 C, 20 a 90 % HR.
--- La BD rechaza lo imposible, pero el backend vuelve a validar al leer:
--- un registro insertado a mano fuera de rango nunca llega a la app.
+-- La BD NO tiene CHECK de rango aquí (a propósito, para la prueba 5): el
+-- backend valida al leer, así que un registro insertado a mano fuera de
+-- rango nunca llega a la app.
 -- ---------------------------------------------------------------------------
 create table if not exists readings (
   id            uuid primary key default gen_random_uuid(),

@@ -206,6 +206,12 @@ medianoche.
 | 7 | Flujo IoT completo | `POST /devices/{id}/readings` → el backend decide alerta y LED → `GET /devices/{id}/command` → `POST /devices/{id}/ack` → la app ve el estado confirmado. |
 | 8 | Acceso a datos de otro negocio | `sensor_del_usuario` y `negocio_permitido` responden **404** si el recurso no es del negocio del usuario: cambiar el id en la URL no alcanza. |
 
+> **Nota para la prueba 5:** el documento de clase da como ejemplo un usuario
+> con edad negativa en `/users`. Sensa no tiene ni ruta `/users` ni campo de
+> edad. Las rutas equivalentes son `GET /admin/users` y
+> `GET /businesses/{id}/users`. La tabla `users` tiene CHECK, así que la
+> prueba se hace con una lectura inválida (`sql/02_pruebas.sql`).
+
 ### Prueba 4 con curl
 
 ```bash

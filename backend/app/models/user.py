@@ -12,6 +12,13 @@ NOMBRE = Field(min_length=2, max_length=120)
 PASSWORD = Field(min_length=8, max_length=128)
 
 
+def _validar_password_con_letra_y_numero(v: str) -> str:
+    """Regla única para toda contraseña nueva: alta de usuario y cambio."""
+    if not any(c.isalpha() for c in v) or not any(c.isdigit() for c in v):
+        raise ValueError("La contraseña debe incluir al menos una letra y un número.")
+    return v
+
+
 # --------------------------------------------------------------------------
 # Entradas
 # --------------------------------------------------------------------------
@@ -35,14 +42,17 @@ class UsuarioAltaEntrada(EntradaModel):
     @field_validator("password")
     @classmethod
     def password_con_letra_y_numero(cls, v: str) -> str:
-        if not any(c.isalpha() for c in v) or not any(c.isdigit() for c in v):
-            raise ValueError("La contraseña debe incluir al menos una letra y un número.")
-        return v
+        return _validar_password_con_letra_y_numero(v)
 
 
 class CambioPasswordEntrada(EntradaModel):
     password_actual: str = Field(min_length=1, max_length=128)
     password_nueva: str = PASSWORD
+
+    @field_validator("password_nueva")
+    @classmethod
+    def password_con_letra_y_numero(cls, v: str) -> str:
+        return _validar_password_con_letra_y_numero(v)
 
 
 # --------------------------------------------------------------------------

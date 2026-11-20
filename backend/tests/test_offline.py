@@ -311,6 +311,27 @@ check(
 )
 
 # ==========================================================================
+print("\n9. Ids en la ruta y en el ack (validación de parámetros)")
+import re as _re  # noqa: E402
+from pydantic import ValidationError as _ValidationError  # noqa: E402
+from app.models.common import UUID_REGEX  # noqa: E402
+from app.models.command import AckEntrada  # noqa: E402
+
+_patron = _re.compile(UUID_REGEX)
+check("un UUID válido pasa el patrón", bool(_patron.match(str(negocio_a.id))))
+check("un id mal formado no pasa el patrón", not _patron.match("abc"))
+check("un id con inyección no pasa el patrón", not _patron.match("' or 1=1 --"))
+try:
+    AckEntrada(comando_id="no-es-uuid", led_estado=True)
+    check("ack rechaza comando_id que no es UUID", False)
+except _ValidationError:
+    check("ack rechaza comando_id que no es UUID", True)
+check(
+    "ack acepta un comando_id UUID",
+    AckEntrada(comando_id=str(negocio_a.id), led_estado=True).comando_id == str(negocio_a.id),
+)
+
+# ==========================================================================
 print()
 if fallos:
     print(f"{len(fallos)} prueba(s) con falla:")

@@ -24,6 +24,9 @@ log = logging.getLogger("sensa.modelos")
 # modelos no discrepen. Se normaliza a minúsculas: el correo no distingue
 # mayúsculas al iniciar sesión.
 EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$"
+# Todos los ids de Sensa son UUID (gen_random_uuid en la BD). Se valida
+# antes de tocar la BD: un id mal formado responde 422, no un 500.
+UUID_REGEX = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 Email = Annotated[
     str,
     StringConstraints(
