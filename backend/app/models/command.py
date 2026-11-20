@@ -4,7 +4,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
+from pydantic import Field
+
 from app.models.common import (
+    UUID_REGEX,
     AccionComando,
     EntradaModel,
     EstadoComando,
@@ -21,7 +24,7 @@ class ComandoEntrada(EntradaModel):
 class AckEntrada(EntradaModel):
     """Lo que manda el ESP32 al aplicar un comando."""
 
-    comando_id: str
+    comando_id: str = Field(pattern=UUID_REGEX)
     led_estado: bool
 
 

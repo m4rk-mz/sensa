@@ -10,7 +10,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.deps import admin_actual
+from app.deps import IdRuta, admin_actual
+from app.models.common import UUID_REGEX
 from app.models.report import PanelAdminSalida, PuntoGrafica, ReporteDiario
 from app.models.user import Usuario, UsuarioSalida
 from app.repositories import users as repo_users
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/admin", tags=["administración"])
 
 @router.get("/users", response_model=list[UsuarioSalida])
 def listar_usuarios(
-    business_id: Optional[str] = Query(default=None),
+    business_id: Optional[str] = Query(default=None, pattern=UUID_REGEX),
     _admin: Usuario = Depends(admin_actual),
 ) -> list[UsuarioSalida]:
     return [UsuarioSalida.de(u) for u in repo_users.listar(business_id)]
@@ -30,7 +31,7 @@ def listar_usuarios(
 
 @router.post("/users/{user_id}/promover", response_model=UsuarioSalida)
 def promover(
-    user_id: str, admin: Usuario = Depends(admin_actual)
+    user_id: IdRuta, admin: Usuario = Depends(admin_actual)
 ) -> UsuarioSalida:
     """Promueve a un usuario a administrador de plataforma.
 
