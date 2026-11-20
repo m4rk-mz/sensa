@@ -55,9 +55,39 @@ deja la etiqueta `application` así:
 </manifest>
 ```
 
-Queda solo en el build de depuración, que es el que se usa para la demo.
+Ese archivo solo aplica al build de depuración (`flutter run`). Para un APK de
+release hay que poner el permiso en el manifest principal,
+`android/app/src/main/AndroidManifest.xml`, dentro de `<manifest>`:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET"/>
+```
+
 Síntoma de que falta: la app abre pero el login responde "No se pudo
 conectar con el servidor".
+
+### Correr contra Render (https)
+
+Con el backend en Render no hace falta `usesCleartextTraffic`. Solo hay que
+apuntar la app a la URL pública:
+
+```bash
+flutter run --dart-define=SENSA_API=https://sensa-2kse.onrender.com
+```
+
+En Android Studio, esto va en Run → Edit Configurations → *Additional run
+args*. La primera petición puede tardar hasta un minuto si el plan gratuito
+de Render estaba dormido.
+
+### Compilar un APK para compañeros
+
+```bash
+flutter build apk --dart-define=SENSA_API=https://sensa-2kse.onrender.com
+```
+
+El archivo queda en `build/app/outputs/flutter-apk/app-release.apk` y se
+instala en cualquier Android. Recuerda el permiso `INTERNET` del manifest
+principal, o la app no podrá conectarse.
 
 Otras dos cosas que tumban la conexión:
 
