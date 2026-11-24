@@ -5,6 +5,7 @@ import '../core/formato.dart';
 import '../core/mensajes.dart';
 import '../core/validaciones.dart';
 import '../modelos/comando.dart';
+import '../modelos/lectura.dart';
 import '../modelos/sensor.dart';
 import '../tema.dart';
 import '../vistamodelos/sensor_detalle_vm.dart';
@@ -58,6 +59,9 @@ class SensorDetalleVista extends StatelessWidget {
               const SizedBox(height: 13),
 
               _TarjetaUmbral(vm: vm, estado: estado),
+              const SizedBox(height: 13),
+
+              _TarjetaLecturas(vm: vm),
               const SizedBox(height: 16),
 
               const _NotaAutomatico(),
@@ -554,6 +558,137 @@ class _TarjetaUmbral extends StatelessWidget {
       ok
           ? 'Umbral actualizado. El nodo lo recibe en su próxima lectura.'
           : vm.error ?? 'No se pudo actualizar el umbral.',
+    );
+  }
+}
+
+/// Las lecturas guardadas, como se ven en la tabla `readings` de la base.
+/// Se vuelve a pedir cada pocos segundos, así que la tabla crece sola.
+class _TarjetaLecturas extends StatelessWidget {
+  const _TarjetaLecturas({required this.vm});
+
+  final SensorDetalleVm vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final lecturas = vm.lecturas;
+
+    return Tarjeta(
+      relleno: const EdgeInsets.fromLTRB(18, 16, 18, 10),
+      hijo: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Lecturas registradas',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Text(
+                lecturas.isEmpty ? '' : 'últimas ${lecturas.length}',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: ColoresSensa.tintaTenue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          if (lecturas.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 14),
+              child: Text(
+                'Todavía no hay lecturas guardadas de este sensor.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: ColoresSensa.tintaTenue,
+                ),
+              ),
+            )
+          else ...[
+            const _FilaLectura.encabezado(),
+            const Divider(height: 12),
+            for (var i = 0; i < lecturas.length; i++) ...[
+              _FilaLectura(lectura: lecturas[i]),
+              if (i < lecturas.length - 1)
+                const Divider(height: 1, thickness: 0.6),
+            ],
+          ],
+          const SizedBox(height: 8),
+          const Text(
+            'Se actualiza sola cada pocos segundos, con lo que el nodo va '
+            'guardando. Solo salen las lecturas válidas.',
+            style: TextStyle(
+              fontSize: 11.5,
+              height: 1.4,
+              color: ColoresSensa.tintaTenue,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Un renglón de la tabla. Con [_FilaLectura.encabezado] pinta los títulos.
+class _FilaLectura extends StatelessWidget {
+  const _FilaLectura({required this.lectura}) : esEncabezado = false;
+  const _FilaLectura.encabezado()
+      : lectura = null,
+        esEncabezado = true;
+
+  final Lectura? lectura;
+  final bool esEncabezado;
+
+  @override
+  Widget build(BuildContext context) {
+    final estilo = esEncabezado
+        ? const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.4,
+            color: ColoresSensa.tintaTenue,
+          )
+        : TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: (lectura?.alerta ?? false)
+                ? ColoresSensa.ambarTexto
+                : ColoresSensa.tinta,
+          );
+
+    final hora = esEncabezado ? 'HORA' : Formato.hora(lectura!.creadoEn);
+    final temp = esEncabezado
+        ? 'TEMP.'
+        : '${lectura!.temperatura.toStringAsFixed(1)} °C';
+    final hum = esEncabezado
+        ? 'HUM.'
+        : '${lectura!.humedad.toStringAsFixed(0)} %';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          SizedBox(width: 52, child: Text(hora, style: estilo)),
+          Expanded(child: Text(temp, style: estilo)),
+          SizedBox(width: 54, child: Text(hum, style: estilo)),
+          SizedBox(
+            width: 26,
+            child: esEncabezado
+                ? const SizedBox.shrink()
+                : (lectura!.alerta
+                    ? const Icon(
+                        Icons.warning_amber_rounded,
+                        size: 16,
+                        color: ColoresSensa.ambarTexto,
+                      )
+                    : const SizedBox.shrink()),
+          ),
+        ],
+      ),
     );
   }
 }

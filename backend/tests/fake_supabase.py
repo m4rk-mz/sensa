@@ -35,9 +35,20 @@ class Respuesta:
         self.data = data
 
 
+# Igual que en sql/01_schema.sql: borrar un sensor arrastra sus hijos.
+HIJOS_EN_CASCADA = {
+    "devices": [
+        ("readings", "device_id"),
+        ("actuator_commands", "device_id"),
+        ("daily_reports", "device_id"),
+    ],
+}
+
+
 class Consulta:
-    def __init__(self, tabla: "Tabla"):
+    def __init__(self, tabla: "Tabla", cliente: "ClienteFalso" = None):
         self.tabla = tabla
+        self.cliente = cliente
         self._filtros: list[Any] = []
         self._orden: tuple[str, bool] | None = None
         self._limite: int | None = None
@@ -58,6 +69,10 @@ class Consulta:
     def update(self, datos: dict[str, Any]) -> "Consulta":
         self._modo = "update"
         self._payload = datos
+        return self
+
+    def delete(self) -> "Consulta":
+        self._modo = "delete"
         return self
 
     def upsert(self, datos: dict[str, Any], on_conflict: str | None = None) -> "Consulta":
@@ -111,6 +126,19 @@ class Consulta:
                 actualizados.append(dict(fila))
             return Respuesta(actualizados)
 
+        if self._modo == "delete":
+            borradas = self._coinciden()
+            ids = {f.get("id") for f in borradas}
+            self.tabla.filas = [f for f in self.tabla.filas if f not in borradas]
+            # Cascada: la BD real tiene `on delete cascade` en las hijas.
+            if self.cliente is not None:
+                for nombre, campo in HIJOS_EN_CASCADA.get(self.tabla.nombre, []):
+                    hija = self.cliente.tablas.get(nombre)
+                    if hija is None:
+                        continue
+                    hija.filas = [f for f in hija.filas if f.get(campo) not in ids]
+            return Respuesta([dict(f) for f in borradas])
+
         if self._modo == "upsert":
             claves = [c.strip() for c in (self._on_conflict or "").split(",") if c.strip()]
             for fila in self.tabla.filas:
@@ -160,7 +188,7 @@ class ClienteFalso:
     def table(self, nombre: str) -> Consulta:
         if nombre not in self.tablas:
             self.tablas[nombre] = Tabla(nombre)
-        return Consulta(self.tablas[nombre])
+        return Consulta(self.tablas[nombre], self)
 
 
 def instalar() -> ClienteFalso:

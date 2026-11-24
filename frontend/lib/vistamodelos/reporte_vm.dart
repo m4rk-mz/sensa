@@ -38,6 +38,38 @@ class ReporteVm extends BaseVm {
 
   double get umbral => _seleccionado?.umbralC ?? 0;
 
+  bool _generando = false;
+  bool get generando => _generando;
+
+  /// Genera y guarda el reporte de hoy con las lecturas que ya hay.
+  ///
+  /// La tarea programada lo hace sola a las 00:10, para el día anterior.
+  /// Esto deja el de hoy guardado al momento, que es lo que hace falta para
+  /// demostrarlo el mismo día de la exposición.
+  Future<bool> generarReporteDeHoy() async {
+    final sensor = _seleccionado;
+    if (sensor == null || _generando) return false;
+
+    _generando = true;
+    avisar();
+
+    final generado = await ejecutar(
+      () => api.generarReporteDelDia(sensor.id),
+      silencioso: true,
+    );
+
+    _generando = false;
+    if (generado == null) {
+      avisar();
+      return false;
+    }
+
+    _reporte = generado;
+    avisar();
+    await _cargarDelSensor();
+    return generado.reporte != null;
+  }
+
   Future<void> cargar() async {
     final lista = await ejecutar(api.misSensores);
     if (lista == null) return;

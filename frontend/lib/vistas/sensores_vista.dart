@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/formato.dart';
+import '../core/mensajes.dart';
 import '../modelos/sensor.dart';
 import '../servicios/sensa_api.dart';
 import '../tema.dart';
@@ -36,6 +37,7 @@ class _Cuerpo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<SensoresVm>();
+    final esAdmin = context.read<SesionVm>().esAdmin;
 
     return RefreshIndicator(
       onRefresh: () => vm.cargar(),
@@ -75,6 +77,7 @@ class _Cuerpo extends StatelessWidget {
             TarjetaSensor(
               estado: sensor,
               alAbrir: () => _abrir(context, sensor),
+              alEliminar: esAdmin ? () => _eliminar(context, sensor, vm) : null,
             ),
             const SizedBox(height: 14),
           ],
@@ -112,14 +115,65 @@ class _Cuerpo extends StatelessWidget {
     vm.iniciar();
     await vm.cargar(silencioso: true);
   }
+
+  /// Borra un sensor. Pide confirmación porque no tiene vuelta atrás: se va
+  /// con sus lecturas, sus comandos y sus reportes.
+  Future<void> _eliminar(
+    BuildContext context,
+    SensorEstado sensor,
+    SensoresVm vm,
+  ) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogo) => AlertDialog(
+        title: Text('¿Eliminar "${sensor.nombre}"?'),
+        content: const Text(
+          'Se borra el sensor junto con sus lecturas, sus comandos y sus '
+          'reportes. Esto no se puede deshacer.\n\nSi solo quieres sacarlo '
+          'de la lista sin perder el historial, cámbialo a inactivo.',
+          style: TextStyle(fontSize: 13.5, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogo).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: ColoresSensa.ambar,
+              minimumSize: const Size(0, 44),
+            ),
+            onPressed: () => Navigator.of(dialogo).pop(true),
+            child: const Text('Sí, eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) return;
+
+    final ok = await vm.eliminar(sensor);
+    Mensajes.mostrar(
+      ok
+          ? 'Se eliminó "${sensor.nombre}".'
+          : vm.error ?? 'No se pudo eliminar el sensor.',
+    );
+  }
 }
 
 /// Tarjeta de un sensor en la lista.
 class TarjetaSensor extends StatelessWidget {
-  const TarjetaSensor({super.key, required this.estado, required this.alAbrir});
+  const TarjetaSensor({
+    super.key,
+    required this.estado,
+    required this.alAbrir,
+    this.alEliminar,
+  });
 
   final SensorEstado estado;
   final VoidCallback alAbrir;
+
+  /// Solo el administrador de plataforma puede borrar un sensor.
+  final VoidCallback? alEliminar;
 
   @override
   Widget build(BuildContext context) {
@@ -198,6 +252,17 @@ class TarjetaSensor extends StatelessWidget {
                 onPressed: alAbrir,
                 child: const Text('Ver detalle'),
               ),
+              if (alEliminar != null)
+                IconButton(
+                  tooltip: 'Eliminar sensor',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 20,
+                    color: ColoresSensa.tintaTenue,
+                  ),
+                  onPressed: alEliminar,
+                ),
             ],
           ),
         ],

@@ -3,6 +3,7 @@ import 'dart:async';
 import '../core/config.dart';
 import '../core/validaciones.dart';
 import '../modelos/comando.dart';
+import '../modelos/lectura.dart';
 import '../modelos/sensor.dart';
 import '../servicios/sensa_api.dart';
 import 'base_vm.dart';
@@ -20,23 +21,44 @@ class SensorDetalleVm extends VmConRefresco {
 
   SensorEstado? _estado;
   Comando? _ultimoComando;
+  List<Lectura> _lecturas = const <Lectura>[];
   String? _accionEnCurso;
   bool _yaRegreseAAutomatico = false;
+  int _vueltas = 0;
+
+  /// Cuántas lecturas se piden para la tabla de registros.
+  static const int lecturasEnTabla = 20;
+
+  /// Cada cuántas vueltas del refresco se vuelve a pedir la tabla. Con el
+  /// detalle a 2 s, la tabla se actualiza cada 6 s: suficiente para verla
+  /// crecer sin triplicar las peticiones.
+  static const int vueltasPorTabla = 3;
 
   SensorEstado? get estado => _estado;
   Comando? get ultimoComando => _ultimoComando;
+  List<Lectura> get lecturas => _lecturas;
 
   /// Qué acción se está mandando ahora mismo, si hay alguna.
   String? get accionEnCurso => _accionEnCurso;
   bool get enviandoAccion => _accionEnCurso != null;
 
   @override
-  Future<void> refrescar() => cargar(silencioso: true);
+  Future<void> refrescar() async {
+    _vueltas++;
+    await cargar(
+      silencioso: true,
+      conLecturas: _vueltas % vueltasPorTabla == 0,
+    );
+  }
 
   /// Pide el estado del sensor. El último comando solo se pide cuando hace
   /// falta: en la primera carga y después de mandar una acción. Así el
   /// refresco automático es una sola petición y no dos.
-  Future<void> cargar({bool silencioso = false, bool conComando = false}) async {
+  Future<void> cargar({
+    bool silencioso = false,
+    bool conComando = false,
+    bool conLecturas = false,
+  }) async {
     final estado = await ejecutar(
       () => api.sensor(deviceId),
       silencioso: silencioso,
@@ -47,6 +69,20 @@ class SensorDetalleVm extends VmConRefresco {
       _regresarAAutomaticoSiHaceFalta(estado);
     }
     if (conComando) await _cargarComando();
+    if (conLecturas) await cargarLecturas();
+  }
+
+  /// Las últimas lecturas guardadas, tal como están en la tabla `readings`.
+  Future<void> cargarLecturas() async {
+    if (cerrado) return;
+    final lista = await ejecutar(
+      () => api.lecturas(deviceId, horas: 24, limite: lecturasEnTabla),
+      silencioso: true,
+    );
+    if (lista != null) {
+      _lecturas = lista;
+      avisar();
+    }
   }
 
   Future<void> _cargarComando() async {
@@ -149,7 +185,7 @@ class SensorDetalleVm extends VmConRefresco {
   }
 
   void iniciar() {
-    cargar(conComando: true);
+    cargar(conComando: true, conLecturas: true);
     iniciarRefresco(Config.refrescoDetalle);
   }
 }

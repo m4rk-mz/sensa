@@ -39,6 +39,8 @@ class ApiCliente {
   Future<dynamic> patch(String ruta, {Object? cuerpo}) =>
       _enviar('PATCH', ruta, cuerpo: cuerpo);
 
+  Future<dynamic> delete(String ruta) => _enviar('DELETE', ruta);
+
   Future<dynamic> _enviar(
     String metodo,
     String ruta, {

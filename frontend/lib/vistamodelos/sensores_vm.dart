@@ -40,6 +40,19 @@ class SensoresVm extends VmConRefresco {
     }
   }
 
+  /// Borra un sensor y todo lo suyo (solo administrador de plataforma).
+  /// La vista confirma antes: esto no se puede deshacer.
+  Future<bool> eliminar(SensorEstado sensor) async {
+    final hecho = await ejecutar(
+      () => api.eliminarSensor(sensor.id).then((_) => true),
+    );
+    if (hecho != true) return false;
+    _sensores = _sensores.where((s) => s.id != sensor.id).toList(growable: false);
+    avisar();
+    await cargar(silencioso: true);
+    return true;
+  }
+
   @override
   Future<void> refrescar() => cargar(silencioso: true);
 

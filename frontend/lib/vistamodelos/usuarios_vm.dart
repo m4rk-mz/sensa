@@ -64,6 +64,21 @@ class UsuariosVm extends BaseVm {
     return true;
   }
 
+  /// Da de baja o reactiva a un usuario. La vista confirma antes.
+  Future<bool> cambiarEstado(Usuario usuario, {required bool activo}) async {
+    _aviso = null;
+    final cambiado = await ejecutar(
+      () => api.cambiarEstadoUsuario(usuario.id, activo: activo),
+    );
+    if (cambiado == null) return false;
+
+    _aviso = activo
+        ? '${cambiado.nombre} vuelve a tener acceso.'
+        : '${cambiado.nombre} ya no puede iniciar sesión.';
+    await cargar(silencioso: true);
+    return true;
+  }
+
   void limpiarAviso() {
     _aviso = null;
     avisar();

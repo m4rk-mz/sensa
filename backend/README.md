@@ -34,6 +34,8 @@ partir de la sesión**, nunca del formulario ni del token.
 2. SQL Editor → pegar y ejecutar `sql/01_schema.sql`. Si la BD ya existía de
    antes del 24 nov 2026, ejecutar también `sql/03_acciones_nodo.sql` (agrega
    las acciones `alerta` y `probar_leds`; sin eso esos botones dan 500).
+   `sql/04_limpiar_nodos.sql` es aparte: solo sirve para borrar nodos de
+   prueba que quedaron registrados y ya no existen.
 3. Project Settings → API → copiar `Project URL` y la llave `service_role`.
 
 ### 2.2 Backend
@@ -121,6 +123,7 @@ Autenticación del nodo: `X-Device-Token: sensa.<device_id>.<secreto>`.
 | GET | `/devices` | usuario | Pantalla "Mis sensores": última lectura, alerta, LED, en línea. |
 | GET | `/devices/{id}` | usuario del negocio | Estado de un sensor. |
 | PATCH | `/devices/{id}` | usuario del negocio (baja: admin) | Cambia nombre o umbral. |
+| DELETE | `/devices/{id}` | **admin** | Borra el sensor con sus lecturas, comandos y reportes. No tiene vuelta atrás. |
 | POST | `/devices/{id}/readings` | **nodo** | Guarda la lectura y responde el estado deseado del LED. |
 | GET | `/devices/{id}/readings` | usuario del negocio | Lecturas **válidas** del periodo (`?horas=24&limite=100`). |
 
@@ -129,6 +132,7 @@ Autenticación del nodo: `X-Device-Token: sensa.<device_id>.<secreto>`.
 | Método | Ruta | Quién | Qué hace |
 |---|---|---|---|
 | POST | `/devices/{id}/command` | usuario del negocio | `led_on`, `led_off`, `auto`, `alerta` o `probar_leds`. |
+| DELETE | `/devices/{id}` | **admin** | Borra el sensor con sus lecturas, comandos y reportes. |
 | GET | `/devices/{id}/command` | **nodo** | Comando pendiente + estado deseado y umbral. |
 | POST | `/devices/{id}/ack` | **nodo** | Confirma que aplicó el comando. |
 | GET | `/devices/{id}/commands` | usuario del negocio | Último comando y su estado. |
@@ -138,9 +142,11 @@ Autenticación del nodo: `X-Device-Token: sensa.<device_id>.<secreto>`.
 | Método | Ruta | Quién | Qué hace |
 |---|---|---|---|
 | GET | `/devices/{id}/reporte-diario` | usuario del negocio | Reporte del día (`?fecha=2026-11-17`). |
+| POST | `/devices/{id}/reporte-diario/generar` | usuario del negocio | Genera y **guarda** el reporte del día al momento (para demostrarlo el mismo día). |
 | GET | `/devices/{id}/reportes` | usuario del negocio | Últimos días. |
 | GET | `/admin/users` | admin | Usuarios, con filtro por negocio. |
 | POST | `/admin/users/{id}/promover` | admin | Promueve a administrador de plataforma. |
+| PATCH | `/admin/users/{id}` | admin | Da de baja o reactiva a un usuario (`{"activo": false}`). No borra nada. |
 | GET | `/admin/stats/negocios` | admin | Tabla + gráfica + conteo de registros descartados. |
 | GET | `/admin/stats/temp-promedio-por-negocio` | admin | Serie de la gráfica. |
 | POST | `/admin/reportes/generar` | admin | Dispara el reporte diario a mano (para la demo). |
@@ -200,6 +206,14 @@ alertas y activaciones del LED, en `daily_reports` (única por sensor y fecha).
 Solo usa **lecturas válidas**. El reporte de *hoy* se calcula al momento cuando
 la app lo pide, así la pantalla "Reporte del día" nunca sale vacía esperando la
 medianoche.
+
+Para la demostración del mismo día hay dos atajos, los dos escriben en
+`daily_reports`:
+
+- `POST /devices/{id}/reporte-diario/generar` — un sensor, hoy por omisión.
+  Es el botón **Generar** de la pantalla "Reporte del día" en la app.
+- `POST /admin/reportes/generar` — todos los sensores; sin `?fecha` usa el
+  día anterior, que es lo que hace la tarea programada.
 
 ---
 

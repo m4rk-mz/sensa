@@ -145,11 +145,15 @@ Reglas que se respetan en todo el código:
 3. **Detalle del sensor** — la temperatura en grande con su estado y
    cuándo llegó, humedad y umbral, **acciones en el nodo** (mandar alerta y
    probar LEDs) con el estado del comando (`pendiente`, `enviado`,
-   `confirmado`, `sin_respuesta`) y el umbral editable. Se refresca cada
-   2 s, con una sola petición por vuelta.
+   `confirmado`, `sin_respuesta`), el umbral editable y la tabla de
+   **lecturas registradas**, como se ven en la tabla `readings`. Se refresca
+   cada 2 s (la tabla cada 6 s).
 4. **Reporte del día** — mínima, promedio y máxima, gráfica de la
    temperatura por hora con la línea del umbral, alertas y veces que se
-   encendió el LED.
+   encendió el LED. Botón **Generar** para guardar el reporte de hoy al
+   momento, sin esperar a la tarea de las 00:10.
+5. **Tu cuenta** — cambio de contraseña, salir y una prueba de conexión con
+   el servidor, útil cuando una pantalla no carga.
 
 **Administrador de plataforma**
 
@@ -157,11 +161,14 @@ Reglas que se respetan en todo el código:
    tabla por negocio, más cuántas lecturas inválidas se descartaron en 24 h
    (la evidencia de la prueba 5). Incluye un botón para disparar el reporte
    diario sin esperar las 00:10.
-2. **Sensores** — los de todos los negocios.
+2. **Sensores** — los de todos los negocios, cada uno con la opción de
+   **eliminarlo** (se va con sus lecturas, comandos y reportes; pide
+   confirmación). Sirve para limpiar nodos de prueba que ya no existen.
 3. **Negocios** — lista, alta (con primer usuario opcional) y registro de
    nodos; el token del nodo se muestra **una sola vez**.
-4. **Usuarios** — filtro por negocio y promoción a administrador con
-   diálogo de confirmación.
+4. **Usuarios** — filtro por negocio, promoción a administrador y
+   **dar de baja o reactivar** usuarios, con diálogo de confirmación. Dar de
+   baja no borra nada: le quita el acceso y su sesión abierta deja de valer.
 
 ## El LED va siempre en automático
 

@@ -7,6 +7,7 @@ from typing import Any, Optional
 from app.db.client import table
 from app.models.common import validar_filas
 from app.models.device import Sensor
+from app.repositories import readings as repo_readings
 
 TABLA = "devices"
 CAMPOS = (
@@ -91,6 +92,16 @@ def actualizar(device_id: str, cambios: dict[str, Any]) -> Optional[Sensor]:
     res = table(TABLA).update(cambios).eq("id", device_id).execute()
     filas = validar_filas(Sensor, res.data)
     return filas[0] if filas else None
+
+
+def eliminar(device_id: str) -> bool:
+    """Borra el sensor. La BD arrastra sus lecturas, comandos y reportes.
+
+    Las tablas hijas tienen `on delete cascade`, así que no quedan huérfanos.
+    """
+    res = table(TABLA).delete().eq("id", device_id).execute()
+    repo_readings.olvidar_cache(device_id)
+    return bool(res.data)
 
 
 def fijar_modo_manual(

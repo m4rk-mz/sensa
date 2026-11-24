@@ -15,6 +15,12 @@ class SensaApi {
 
   final ApiCliente cliente;
 
+  /// Comprueba que el backend contesta. No necesita sesión.
+  Future<bool> salud() async {
+    final datos = await cliente.get('/health');
+    return J.mapa(datos)['estado'] == 'ok';
+  }
+
   // ---------------------------------------------------------------- sesión
   Future<Sesion> login({required String email, required String password}) async {
     final datos = await cliente.post('/auth/login', cuerpo: {
@@ -70,6 +76,11 @@ class SensaApi {
     return Sensor.desdeJson(J.mapa(datos));
   }
 
+  /// Borra un sensor y todo lo suyo. Solo el administrador de plataforma.
+  Future<void> eliminarSensor(String deviceId) async {
+    await cliente.delete('/devices/$deviceId');
+  }
+
   Future<List<Lectura>> lecturas(
     String deviceId, {
     int horas = 24,
@@ -103,6 +114,19 @@ class SensaApi {
   Future<ReporteDelDia> reporteDelDia(String deviceId, {DateTime? fecha}) async {
     final datos = await cliente.get(
       '/devices/$deviceId/reporte-diario',
+      query: fecha == null ? null : {'fecha': _soloFecha(fecha)},
+    );
+    return ReporteDelDia.desdeJson(J.mapa(datos));
+  }
+
+  /// Genera y guarda el reporte del día con las lecturas que ya hay.
+  /// Sirve para demostrarlo el mismo día, sin esperar a las 00:10.
+  Future<ReporteDelDia> generarReporteDelDia(
+    String deviceId, {
+    DateTime? fecha,
+  }) async {
+    final datos = await cliente.post(
+      '/devices/$deviceId/reporte-diario/generar',
       query: fecha == null ? null : {'fecha': _soloFecha(fecha)},
     );
     return ReporteDelDia.desdeJson(J.mapa(datos));
@@ -194,6 +218,16 @@ class SensaApi {
 
   Future<Usuario> promover(String userId) async {
     final datos = await cliente.post('/admin/users/$userId/promover');
+    return Usuario.desdeJson(J.mapa(datos));
+  }
+
+  /// Da de baja o reactiva a un usuario. No borra nada: un usuario dado de
+  /// baja no puede iniciar sesión y su sesión abierta deja de valer.
+  Future<Usuario> cambiarEstadoUsuario(String userId, {required bool activo}) async {
+    final datos = await cliente.patch(
+      '/admin/users/$userId',
+      cuerpo: {'activo': activo},
+    );
     return Usuario.desdeJson(J.mapa(datos));
   }
 

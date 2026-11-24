@@ -386,7 +386,35 @@ check(
 print()
 
 # ==========================================================================
-print("\n10. Caché de la última lectura (una consulta menos por segundo)")
+print("\n10. Baja de usuario y borrado de sensor (administración)")
+baja = repo_users.fijar_activo(usuario_a.id, False)
+check("el usuario queda dado de baja", baja is not None and not baja.activo)
+alta = repo_users.fijar_activo(usuario_a.id, True)
+check("y se puede reactivar", alta is not None and alta.activo)
+
+sensor_borrable = repo_devices.crear(
+    business_id=negocio_a.id,
+    nombre="Nodo que se va",
+    umbral_c=27.0,
+    token_hash="hash",
+)
+repo_readings.crear(
+    device_id=sensor_borrable.id,
+    temperatura=25.0,
+    humedad=55.0,
+    led_reportado=False,
+    alerta=False,
+)
+check("el sensor de prueba existe", repo_devices.por_id(sensor_borrable.id) is not None)
+check("se elimina", repo_devices.eliminar(sensor_borrable.id))
+check("ya no está", repo_devices.por_id(sensor_borrable.id) is None)
+check(
+    "y la caché de su última lectura también se limpia",
+    repo_readings.ultima(sensor_borrable.id) is None,
+)
+
+# ==========================================================================
+print("\n11. Caché de la última lectura (una consulta menos por segundo)")
 repo_readings.olvidar_cache()
 antes = repo_readings.ultima(sensor_b.id)
 nueva = repo_readings.crear(

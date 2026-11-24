@@ -144,6 +144,11 @@ class _TarjetaUsuario extends StatelessWidget {
                   ],
                 ),
               ),
+              if (!usuario.activo)
+                const Padding(
+                  padding: EdgeInsets.only(right: 6),
+                  child: ChipEstado.neutro(texto: 'Dado de baja'),
+                ),
               if (usuario.esAdmin)
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -166,11 +171,38 @@ class _TarjetaUsuario extends StatelessWidget {
                 ),
             ],
           ),
-          if (!usuario.esAdmin) ...[
-            const SizedBox(height: 11),
-            OutlinedButton(
-              onPressed: esYo ? null : () => _confirmar(context),
-              child: const Text('Promover a administrador'),
+          const SizedBox(height: 11),
+          Row(
+            children: [
+              if (!usuario.esAdmin)
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: esYo || !usuario.activo
+                        ? null
+                        : () => _confirmar(context),
+                    child: const Text('Promover'),
+                  ),
+                ),
+              if (!usuario.esAdmin) const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: usuario.activo
+                        ? ColoresSensa.ambarTexto
+                        : ColoresSensa.verde,
+                  ),
+                  onPressed: esYo ? null : () => _cambiarEstado(context),
+                  child: Text(usuario.activo ? 'Dar de baja' : 'Reactivar'),
+                ),
+              ),
+            ],
+          ),
+          if (esYo) ...[
+            const SizedBox(height: 7),
+            const Text(
+              'Esta es tu propia cuenta: no puedes darte de baja ni '
+              'promoverte.',
+              style: _tenue,
             ),
           ],
         ],
@@ -180,6 +212,50 @@ class _TarjetaUsuario extends StatelessWidget {
 
   static const TextStyle _tenue =
       TextStyle(fontSize: 12.5, color: ColoresSensa.tintaTenue);
+
+  /// Da de baja o reactiva. No borra al usuario: solo le quita el acceso,
+  /// y como el backend relee el estado en cada petición, una sesión abierta
+  /// deja de valer en cuanto se guarda.
+  Future<void> _cambiarEstado(BuildContext context) async {
+    final darDeBaja = usuario.activo;
+
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogo) => AlertDialog(
+        title: Text(
+          darDeBaja
+              ? '¿Dar de baja a ${usuario.nombre}?'
+              : '¿Reactivar a ${usuario.nombre}?',
+        ),
+        content: Text(
+          darDeBaja
+              ? 'No podrá iniciar sesión y su sesión abierta deja de valer en '
+                  'la siguiente petición. No se borra nada: sus datos y los '
+                  'de su negocio se quedan, y puedes reactivarlo cuando '
+                  'quieras.'
+              : 'Vuelve a poder iniciar sesión con la misma contraseña.',
+          style: const TextStyle(fontSize: 13.5, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogo).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: darDeBaja
+                ? FilledButton.styleFrom(backgroundColor: ColoresSensa.ambar)
+                : null,
+            onPressed: () => Navigator.of(dialogo).pop(true),
+            child: Text(darDeBaja ? 'Dar de baja' : 'Reactivar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) return;
+
+    final ok = await vm.cambiarEstado(usuario, activo: !darDeBaja);
+    if (!ok) Mensajes.mostrar(vm.error ?? 'No se pudo actualizar al usuario.');
+  }
 
   Future<void> _confirmar(BuildContext context) async {
     final confirmado = await showDialog<bool>(

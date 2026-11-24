@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.deps import sensor_del_usuario, usuario_actual
+from app.deps import admin_actual, sensor_del_usuario, usuario_actual
 from app.models.common import ahora as ahora_utc
 from app.models.device import Sensor, SensorEdicionEntrada, SensorEstadoSalida
 from app.models.user import Usuario
@@ -78,3 +78,24 @@ def editar_sensor(
             detail="No se pudo actualizar el sensor.",
         )
     return actualizado
+
+
+@router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_sensor(
+    sensor: Sensor = Depends(sensor_del_usuario),
+    _admin: Usuario = Depends(admin_actual),
+) -> None:
+    """Borra un sensor y todo lo suyo. Solo el administrador de plataforma.
+
+    Se lleva por delante sus lecturas, comandos y reportes (la BD lo hace
+    en cascada), así que no tiene vuelta atrás. Sirve para limpiar los nodos
+    de prueba que quedaron registrados y ya no existen.
+
+    Para quitarlo de la lista sin perder su historial, usar
+    `PATCH /devices/{id}` con `activo: false`.
+    """
+    if not repo_devices.eliminar(sensor.id):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo eliminar el sensor.",
+        )

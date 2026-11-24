@@ -95,6 +95,13 @@ def promover_a_admin(user_id: str) -> Optional[Usuario]:
     return filas[0] if filas else None
 
 
+def fijar_activo(user_id: str, activo: bool) -> Optional[Usuario]:
+    """Da de baja o reactiva a un usuario. No borra nada."""
+    res = table(TABLA).update({"activo": activo}).eq("id", user_id).execute()
+    filas = validar_filas(Usuario, res.data)
+    return filas[0] if filas else None
+
+
 def actualizar_password(user_id: str, password_hash: str) -> bool:
     res = table(TABLA).update({"password_hash": password_hash}).eq("id", user_id).execute()
     return bool(res.data)
