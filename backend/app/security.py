@@ -8,6 +8,8 @@ Reglas que cumple este módulo:
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -103,8 +105,26 @@ def partes_token_sensor(token: str) -> Optional[tuple[str, str]]:
     return device_id, secreto
 
 
+# El nodo llama cada segundo y Argon2id tarda a propósito (~100-300 ms y
+# 64 MB por verificación). Tras la primera verificación correcta se guarda
+# en memoria el SHA-256 del secreto, indexado por su hash Argon2: si el
+# token se regenera, el hash cambia y la entrada vieja ya no sirve. El
+# secreto es aleatorio y largo, así que el SHA-256 no se puede revertir.
+_secretos_verificados: dict[str, str] = {}
+_MAX_CACHE_SENSORES = 512
+
+
 def verificar_secreto_sensor(secreto: str, token_hash: str) -> bool:
+    huella = hashlib.sha256(secreto.encode()).hexdigest()
+    conocida = _secretos_verificados.get(token_hash)
+    if conocida is not None:
+        return hmac.compare_digest(conocida, huella)
     try:
-        return _hasher.verify(token_hash, secreto)
+        valido = _hasher.verify(token_hash, secreto)
     except (VerifyMismatchError, VerificationError, InvalidHashError):
         return False
+    if valido:
+        if len(_secretos_verificados) >= _MAX_CACHE_SENSORES:
+            _secretos_verificados.clear()
+        _secretos_verificados[token_hash] = huella
+    return valido

@@ -40,6 +40,21 @@ def por_id(device_id: str) -> Optional[Sensor]:
     return filas[0] if filas else None
 
 
+def con_token_hash(device_id: str) -> tuple[Optional[Sensor], Optional[str]]:
+    """Sensor y hash de su token en una sola consulta (lo usa el nodo)."""
+    res = (
+        table(TABLA)
+        .select(CAMPOS + ",token_hash")
+        .eq("id", device_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        return None, None
+    fila = res.data[0]
+    return Sensor.desde_fila(fila), fila.get("token_hash")
+
+
 def token_hash_por_id(device_id: str) -> Optional[str]:
     res = table(TABLA).select("token_hash").eq("id", device_id).limit(1).execute()
     if not res.data:

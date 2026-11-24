@@ -150,6 +150,23 @@ check(
     ),
 )
 
+sensor_y_hash = repo_devices.con_token_hash(sensor_a.id)
+check(
+    "una sola consulta trae sensor y hash del token",
+    sensor_y_hash[0] is not None
+    and sensor_y_hash[0].id == sensor_a.id
+    and sensor_y_hash[1] == repo_devices.token_hash_por_id(sensor_a.id),
+)
+check(
+    "el secreto ya verificado pasa desde la caché",
+    sensor_y_hash[1] in security._secretos_verificados
+    and security.verificar_secreto_sensor(partes[1], sensor_y_hash[1]),
+)
+check(
+    "con caché, un secreto inventado sigue sin verificar",
+    not security.verificar_secreto_sensor("otro-inventado", sensor_y_hash[1]),
+)
+
 tok, _expira = security.crear_token_sesion(
     user_id=usuario_a.id, rol=usuario_a.rol.value, business_id=usuario_a.business_id
 )
@@ -251,6 +268,39 @@ check(
 # Volver a automático limpia el modo manual.
 sensor_auto, _c = led.aplicar_comando(sensor_man, AccionComando.AUTO, usuario_a.id)
 check("la acción auto sale del modo manual", led.modo(sensor_auto) == "automatico")
+
+# Alerta y prueba de LEDs: acciones de un momento, no tocan el modo.
+_s, comando_alerta = led.aplicar_comando(sensor_auto, AccionComando.ALERTA, usuario_a.id)
+sensor_tras_alerta = repo_devices.por_id(sensor_auto.id)
+check("la alerta nace pendiente", comando_alerta.estado is EstadoComando.PENDIENTE)
+check("la alerta no saca de automático", led.modo(sensor_tras_alerta) == "automatico")
+lectura_coincide = lectura_confirma.model_copy(update={"led_reportado": False})
+led.confirmar_por_lectura(sensor_tras_alerta, lectura_coincide)
+check(
+    "una lectura no confirma la alerta (la tiene que recoger el nodo)",
+    repo_commands.por_id(comando_alerta.id).estado is EstadoComando.PENDIENTE,
+)
+check(
+    "el nodo recibe la alerta como comando abierto",
+    repo_commands.abierto_por_device(sensor_auto.id).id == comando_alerta.id,
+)
+
+sensor_on, _c = led.aplicar_comando(sensor_tras_alerta, AccionComando.LED_ON, usuario_a.id)
+led.aplicar_comando(sensor_on, AccionComando.PROBAR_LEDS, usuario_a.id)
+sensor_tras_prueba = repo_devices.por_id(sensor_on.id)
+check(
+    "probar LEDs no cambia el modo manual ni el LED forzado",
+    led.modo(sensor_tras_prueba) == "manual" and sensor_tras_prueba.led_forzado is True,
+)
+led.aplicar_comando(sensor_tras_prueba, AccionComando.AUTO, usuario_a.id)
+
+# Desde las rutas del nodo la revisión de vencidos se espacia.
+led.expirar_comandos_vencidos()
+check(
+    "revisión espaciada: no repite antes de 5 s",
+    led.expirar_comandos_vencidos(espaciado=True) == 0
+    and led._ultima_expiracion is not None,
+)
 
 # ==========================================================================
 print("\n6. Reporte diario (solo lecturas válidas)")

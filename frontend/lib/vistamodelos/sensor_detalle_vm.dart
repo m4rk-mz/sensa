@@ -7,7 +7,8 @@ import '../modelos/sensor.dart';
 import '../servicios/sensa_api.dart';
 import 'base_vm.dart';
 
-/// VistaModelo del detalle de un sensor: lectura, control del LED y umbral.
+/// VistaModelo del detalle de un sensor: lectura, control del LED,
+/// acciones del nodo (alerta y prueba de LEDs) y umbral.
 class SensorDetalleVm extends BaseVm {
   SensorDetalleVm({required this.api, required this.deviceId});
 
@@ -18,6 +19,7 @@ class SensorDetalleVm extends BaseVm {
   Comando? _ultimoComando;
   bool _enviandoComando = false;
   Timer? _temporizador;
+  bool _cerrado = false;
 
   SensorEstado? get estado => _estado;
   Comando? get ultimoComando => _ultimoComando;
@@ -26,9 +28,15 @@ class SensorDetalleVm extends BaseVm {
   Future<void> cargar({bool silencioso = false}) async {
     final resultado = await ejecutar(
       () async {
-        final estado = await api.sensor(deviceId);
-        final comando = await api.ultimoComando(deviceId);
-        return <String, Object?>{'estado': estado, 'comando': comando};
+        // Las dos consultas a la vez: el detalle se refresca cada 2 s.
+        final resultados = await Future.wait<Object?>([
+          api.sensor(deviceId),
+          api.ultimoComando(deviceId),
+        ]);
+        return <String, Object?>{
+          'estado': resultados[0],
+          'comando': resultados[1],
+        };
       },
       silencioso: silencioso,
     );
@@ -39,10 +47,12 @@ class SensorDetalleVm extends BaseVm {
     }
   }
 
-  /// Pide prender, apagar o volver a automático.
+  /// Pide prender, apagar, volver a automático, mandar una alerta o probar
+  /// los LEDs.
   ///
-  /// Después de pedirlo se refresca enseguida y otra vez a los 3 s, que es
-  /// lo que tarda el nodo en recoger el comando y confirmarlo.
+  /// Después de pedirlo se refresca enseguida, al segundo y a los 3 s: el
+  /// nodo consulta cada segundo y la alerta o la prueba se confirman al
+  /// terminar (unos 2 s).
   Future<bool> enviarComando(String accion) async {
     _enviandoComando = true;
     avisar();
@@ -61,7 +71,11 @@ class SensorDetalleVm extends BaseVm {
     _ultimoComando = comando;
     avisar();
     await cargar(silencioso: true);
-    Timer(const Duration(seconds: 3), () => cargar(silencioso: true));
+    for (final espera in const [Duration(seconds: 1), Duration(seconds: 3)]) {
+      Timer(espera, () {
+        if (!_cerrado) cargar(silencioso: true);
+      });
+    }
     return true;
   }
 
@@ -114,6 +128,7 @@ class SensorDetalleVm extends BaseVm {
 
   @override
   void dispose() {
+    _cerrado = true;
     detenerRefresco();
     super.dispose();
   }

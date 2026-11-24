@@ -1,6 +1,7 @@
 -- Sensa: esquema de base de datos (PostgreSQL / Supabase)
 -- Ejecutar en el SQL Editor de Supabase antes de levantar el backend.
 -- Orden: 01_schema.sql -> scripts/seed_admin.py -> 02_pruebas.sql (opcional, demo)
+-- En una BD creada antes del 24 nov 2026, correr también 03_acciones_nodo.sql.
 
 -- ---------------------------------------------------------------------------
 -- Extensiones
@@ -17,6 +18,9 @@ exception when duplicate_object then null; end $$;
 do $$ begin
   create type command_action as enum ('led_on', 'led_off', 'auto');
 exception when duplicate_object then null; end $$;
+-- Acciones agregadas después (ver 03_acciones_nodo.sql en una BD ya creada).
+alter type command_action add value if not exists 'alerta';
+alter type command_action add value if not exists 'probar_leds';
 
 do $$ begin
   create type command_status as enum ('pendiente', 'enviado', 'confirmado', 'sin_respuesta');

@@ -16,7 +16,8 @@ from app.models.common import (
 
 
 class ComandoEntrada(EntradaModel):
-    """Lo que manda la app: prender, apagar o devolver a automático."""
+    """Lo que manda la app: prender, apagar, devolver a automático, mandar
+    una alerta (beeps) o probar los LEDs."""
 
     accion: AccionComando
 
@@ -40,7 +41,7 @@ class Comando(RegistroModel):
 
 
 class ComandoPendienteSalida(RegistroModel):
-    """Respuesta a GET /devices/{id}/command (el ESP32 consulta cada 2-5 s)."""
+    """Respuesta a GET /devices/{id}/command (el ESP32 consulta cada 1 s)."""
 
     comando: Optional[Comando] = None
     led_deseado: bool

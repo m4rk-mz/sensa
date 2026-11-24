@@ -7,8 +7,18 @@ class AccionLed {
   static const String automatico = 'auto';
 }
 
-/// Un comando del LED y en qué va: pendiente, enviado, confirmado o sin
-/// respuesta (cuando el nodo no contestó en 15 s).
+/// Acciones de un momento en el nodo: no cambian el modo ni el LED.
+class AccionNodo {
+  /// Beeps en el zumbador con el LED rojo prendido.
+  static const String alerta = 'alerta';
+
+  /// Rojo, amarillo y verde, uno por uno.
+  static const String probarLeds = 'probar_leds';
+}
+
+/// Un comando para el nodo (LED, alerta o prueba de LEDs) y en qué va:
+/// pendiente, enviado, confirmado o sin respuesta (cuando el nodo no contestó
+/// en 15 s).
 class Comando {
   const Comando({
     required this.id,
@@ -32,12 +42,22 @@ class Comando {
   bool get sinRespuesta => estado == 'sin_respuesta';
   bool get enCamino => estado == 'pendiente' || estado == 'enviado';
 
+  /// True si cambia el LED o su modo; false para alerta y prueba de LEDs.
+  bool get esDelLed =>
+      accion == AccionLed.encender ||
+      accion == AccionLed.apagar ||
+      accion == AccionLed.automatico;
+
   String get accionLegible {
     switch (accion) {
       case AccionLed.encender:
         return 'Encender el LED';
       case AccionLed.apagar:
         return 'Apagar el LED';
+      case AccionNodo.alerta:
+        return 'Mandar alerta';
+      case AccionNodo.probarLeds:
+        return 'Probar LEDs';
       default:
         return 'Volver a automático';
     }

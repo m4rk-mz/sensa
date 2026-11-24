@@ -9,7 +9,7 @@ import '../tema.dart';
 import '../vistamodelos/sensor_detalle_vm.dart';
 import 'widgets/comunes.dart';
 
-/// Detalle de un sensor: lectura, control del LED y umbral.
+/// Detalle de un sensor: lectura, control del LED, acciones del nodo y umbral.
 class SensorDetalleVista extends StatelessWidget {
   const SensorDetalleVista({super.key, required this.nombreInicial});
 
@@ -80,6 +80,9 @@ class SensorDetalleVista extends StatelessWidget {
               const SizedBox(height: 13),
 
               _TarjetaLed(vm: vm, estado: estado),
+              const SizedBox(height: 13),
+
+              _TarjetaAccionesNodo(vm: vm, estado: estado),
               const SizedBox(height: 13),
 
               _TarjetaUmbral(vm: vm, estado: estado),
@@ -163,7 +166,9 @@ class _TarjetaLed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final comando = vm.ultimoComando;
+    // La alerta y la prueba de LEDs tienen su propia tarjeta.
+    final ultimo = vm.ultimoComando;
+    final comando = (ultimo != null && ultimo.esDelLed) ? ultimo : null;
 
     return Tarjeta(
       hijo: Column(
@@ -241,6 +246,110 @@ class _TarjetaLed extends StatelessWidget {
     mensajero.showSnackBar(
       const SnackBar(
         content: Text('Comando enviado. Esperando que el nodo lo confirme.'),
+      ),
+    );
+  }
+}
+
+/// Botones de un momento: alerta con beeps y prueba de los tres LEDs.
+class _TarjetaAccionesNodo extends StatelessWidget {
+  const _TarjetaAccionesNodo({required this.vm, required this.estado});
+
+  final SensorDetalleVm vm;
+  final SensorEstado estado;
+
+  @override
+  Widget build(BuildContext context) {
+    final ultimo = vm.ultimoComando;
+    final comando = (ultimo != null && !ultimo.esDelLed) ? ultimo : null;
+    final ocupado = vm.enviandoComando;
+
+    return Tarjeta(
+      hijo: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Expanded(
+                child: Text(
+                  'Acciones en el nodo',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (comando != null) _ChipComando(comando: comando),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: ColoresSensa.ambar,
+                  ),
+                  onPressed: ocupado
+                      ? null
+                      : () => _enviar(
+                            context,
+                            AccionNodo.alerta,
+                            'Alerta enviada: el nodo va a sonar.',
+                          ),
+                  icon: const Icon(Icons.campaign_rounded, size: 19),
+                  label: const Text('Mandar alerta'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: ocupado
+                      ? null
+                      : () => _enviar(
+                            context,
+                            AccionNodo.probarLeds,
+                            'Prueba enviada: rojo, amarillo y verde.',
+                          ),
+                  icon: const Icon(Icons.lightbulb_outline_rounded, size: 19),
+                  label: const Text('Probar LEDs'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 11),
+          Text(
+            comando != null && comando.sinRespuesta
+                ? 'El nodo no confirmó «${comando.accionLegible}» en 15 s. '
+                    'Revisa que esté encendido y con red.'
+                : 'La alerta da beeps con el LED rojo prendido. La prueba '
+                    'prende rojo, amarillo y verde, uno por uno. Ninguna '
+                    'cambia el modo del LED.',
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.5,
+              color: comando != null && comando.sinRespuesta
+                  ? ColoresSensa.ambarTexto
+                  : const Color(0xFF3A3747),
+            ),
+          ),
+          if (!estado.enLinea) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'El nodo no ha reportado en los últimos 2 minutos: puede que no '
+              'reciba la acción.',
+              style: TextStyle(fontSize: 12.5, color: ColoresSensa.ambarTexto),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _enviar(BuildContext context, String accion, String aviso) async {
+    final mensajero = ScaffoldMessenger.of(context);
+    final ok = await vm.enviarComando(accion);
+    mensajero.showSnackBar(
+      SnackBar(
+        content: Text(ok ? aviso : vm.error ?? 'No se pudo enviar.'),
       ),
     );
   }

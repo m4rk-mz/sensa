@@ -101,13 +101,13 @@ def sensor_autenticado(
     if token_device_id != device_id:
         raise NO_ENCONTRADO
 
-    token_hash = repo_devices.token_hash_por_id(device_id)
+    # Una sola consulta: el nodo pregunta cada segundo.
+    sensor, token_hash = repo_devices.con_token_hash(device_id)
     if not token_hash or not security.verificar_secreto_sensor(secreto, token_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de sensor inválido."
         )
 
-    sensor = repo_devices.por_id(device_id)
     if sensor is None or not sensor.activo:
         raise NO_ENCONTRADO
     return sensor
