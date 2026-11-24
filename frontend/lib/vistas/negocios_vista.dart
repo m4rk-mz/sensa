@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../core/mensajes.dart';
 import '../core/validaciones.dart';
 import '../modelos/negocio.dart';
 import '../servicios/sensa_api.dart';
@@ -219,22 +220,15 @@ Future<void> _altaNegocio(BuildContext context, NegociosVm vm) async {
     ),
   );
 
-  if (guardar == true && context.mounted) {
-    final mensajero = ScaffoldMessenger.of(context);
+  if (guardar == true) {
     final ok = await vm.crearNegocio(
       nombre: nombre.text,
       usuarioNombre: usuarioNombre.text,
       usuarioEmail: usuarioEmail.text,
       usuarioPassword: usuarioPassword.text,
     );
-    mensajero.showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Negocio dado de alta.'
-              : vm.error ?? 'No se pudo dar de alta el negocio.',
-        ),
-      ),
+    Mensajes.mostrar(
+      ok ? 'Negocio dado de alta.' : vm.error ?? 'No se pudo dar de alta el negocio.',
     );
   }
 
@@ -319,15 +313,9 @@ Future<void> _altaSensor(
       nombre: nombre.text,
       umbral: umbral.text,
     );
-    if (!context.mounted) return;
-
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(vm.error ?? 'No se pudo registrar el sensor.'),
-        ),
-      );
-    } else {
+      Mensajes.mostrar(vm.error ?? 'No se pudo registrar el sensor.');
+    } else if (context.mounted) {
       await _mostrarToken(context, vm);
     }
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/mensajes.dart';
 import '../modelos/panel.dart';
 import '../servicios/sensa_api.dart';
 import '../tema.dart';
@@ -35,9 +36,7 @@ class _Cuerpo extends StatelessWidget {
       // Se muestra una vez y se limpia, para no repetirlo en cada rebuild.
       final texto = vm.aviso!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(texto)));
+        Mensajes.mostrar(texto);
         vm.limpiarAviso();
       });
     }

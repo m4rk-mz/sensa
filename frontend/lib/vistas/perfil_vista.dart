@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/config.dart';
+import '../core/mensajes.dart';
 import '../core/validaciones.dart';
 import '../tema.dart';
 import '../vistamodelos/sesion_vm.dart';
@@ -31,20 +32,15 @@ class _PerfilVistaState extends State<PerfilVista> {
     if (!_formulario.currentState!.validate()) return;
 
     final sesion = context.read<SesionVm>();
-    final mensajero = ScaffoldMessenger.of(context);
     final ok = await sesion.cambiarPassword(
       actual: _actual.text,
       nueva: _nueva.text,
     );
 
-    mensajero.showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Contraseña actualizada.'
-              : sesion.error ?? 'No se pudo cambiar la contraseña.',
-        ),
-      ),
+    Mensajes.mostrar(
+      ok
+          ? 'Contraseña actualizada.'
+          : sesion.error ?? 'No se pudo cambiar la contraseña.',
     );
     if (ok) {
       _actual.clear();

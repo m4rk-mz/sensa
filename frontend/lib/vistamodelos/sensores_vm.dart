@@ -1,12 +1,10 @@
-import 'dart:async';
-
 import '../core/config.dart';
 import '../modelos/sensor.dart';
 import '../servicios/sensa_api.dart';
 import 'base_vm.dart';
 
 /// VistaModelo de "Mis sensores".
-class SensoresVm extends BaseVm {
+class SensoresVm extends VmConRefresco {
   SensoresVm(this.api, {this.esAdmin = false});
 
   final SensaApi api;
@@ -16,7 +14,6 @@ class SensoresVm extends BaseVm {
 
   List<SensorEstado> _sensores = const <SensorEstado>[];
   String? _tituloNegocio;
-  Timer? _temporizador;
 
   List<SensorEstado> get sensores => _sensores;
 
@@ -43,23 +40,10 @@ class SensoresVm extends BaseVm {
     }
   }
 
-  /// Refresca solo mientras la pantalla está visible.
-  void iniciarRefresco() {
-    _temporizador?.cancel();
-    _temporizador = Timer.periodic(
-      Config.refrescoLista,
-      (_) => cargar(silencioso: true),
-    );
-  }
-
-  void detenerRefresco() {
-    _temporizador?.cancel();
-    _temporizador = null;
-  }
-
   @override
-  void dispose() {
-    detenerRefresco();
-    super.dispose();
-  }
+  Future<void> refrescar() => cargar(silencioso: true);
+
+  /// Refresca mientras la pantalla está al frente. Se detiene al abrir el
+  /// detalle de un sensor y cuando la app pasa a segundo plano.
+  void iniciar() => iniciarRefresco(Config.refrescoLista);
 }

@@ -224,6 +224,7 @@ check(
     f"-> {ultima.temperatura if ultima else None}",
 )
 
+
 # ==========================================================================
 print("\n5. Flujo del LED y estados del comando (prueba 7)")
 sensor_a = repo_devices.por_id(sensor_a.id)
@@ -383,6 +384,29 @@ check(
 
 # ==========================================================================
 print()
+
+# ==========================================================================
+print("\n10. Caché de la última lectura (una consulta menos por segundo)")
+repo_readings.olvidar_cache()
+antes = repo_readings.ultima(sensor_b.id)
+nueva = repo_readings.crear(
+    device_id=sensor_b.id,
+    temperatura=26.0,
+    humedad=50.0,
+    led_reportado=False,
+    alerta=False,
+)
+check(
+    "al crear una lectura, la caché queda al día",
+    repo_readings.ultima(sensor_b.id).id == nueva.id,
+    f"-> antes {antes.id if antes else None}",
+)
+repo_readings.olvidar_cache(sensor_b.id)
+check(
+    "sin caché se consulta la BD y devuelve lo mismo",
+    repo_readings.ultima(sensor_b.id).id == nueva.id,
+)
+
 if fallos:
     print(f"{len(fallos)} prueba(s) con falla:")
     for f in fallos:

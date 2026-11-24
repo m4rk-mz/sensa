@@ -1,4 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+
+import 'package:flutter/widgets.dart';
 
 import '../core/api_error.dart';
 
@@ -24,6 +26,10 @@ abstract class BaseVm extends ChangeNotifier {
     _dispuesto = true;
     super.dispose();
   }
+
+  /// True cuando la pantalla ya se cerró y el VistaModelo se desechó.
+  @protected
+  bool get cerrado => _dispuesto;
 
   /// notifyListeners seguro: si la pantalla ya se cerró, no hace nada.
   @protected
@@ -71,5 +77,71 @@ abstract class BaseVm extends ChangeNotifier {
       _cargando = false;
       avisar();
     }
+  }
+}
+
+/// VistaModelo que se refresca solo cada cierto tiempo.
+///
+/// El refresco se detiene cuando la app pasa a segundo plano y se reanuda
+/// al volver: sin esto la app seguía pidiendo datos con la pantalla
+/// apagada, que es trabajo de red y batería tirados a la basura, y además
+/// llenaba de peticiones al backend.
+abstract class VmConRefresco extends BaseVm with WidgetsBindingObserver {
+  Timer? _temporizador;
+  Duration? _cada;
+  bool _activo = false;
+  bool _observando = false;
+  bool _enPrimerPlano = true;
+
+  /// Lo que se vuelve a pedir en cada vuelta.
+  @protected
+  Future<void> refrescar();
+
+  void iniciarRefresco(Duration cada) {
+    // Si la pantalla ya se cerró (por ejemplo, si la sesión caducó mientras
+    // se veía el detalle) no se vuelve a armar nada.
+    if (cerrado) return;
+    _cada = cada;
+    _activo = true;
+    if (!_observando) {
+      WidgetsBinding.instance.addObserver(this);
+      _observando = true;
+    }
+    _armar();
+  }
+
+  void detenerRefresco() {
+    _activo = false;
+    _temporizador?.cancel();
+    _temporizador = null;
+    if (_observando) {
+      WidgetsBinding.instance.removeObserver(this);
+      _observando = false;
+    }
+  }
+
+  void _armar() {
+    _temporizador?.cancel();
+    _temporizador = null;
+    final cada = _cada;
+    if (!_activo || !_enPrimerPlano || cada == null) return;
+    _temporizador = Timer.periodic(cada, (_) {
+      if (!cerrado) refrescar();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState estado) {
+    final estabaAdelante = _enPrimerPlano;
+    _enPrimerPlano = estado == AppLifecycleState.resumed;
+    _armar();
+    // Al volver, una lectura de inmediato para no mostrar datos viejos.
+    if (_enPrimerPlano && !estabaAdelante && _activo && !cerrado) refrescar();
+  }
+
+  @override
+  void dispose() {
+    detenerRefresco();
+    super.dispose();
   }
 }

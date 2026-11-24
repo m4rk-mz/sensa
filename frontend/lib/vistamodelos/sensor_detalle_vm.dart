@@ -7,9 +7,12 @@ import '../modelos/sensor.dart';
 import '../servicios/sensa_api.dart';
 import 'base_vm.dart';
 
-/// VistaModelo del detalle de un sensor: lectura, control del LED,
-/// acciones del nodo (alerta y prueba de LEDs) y umbral.
-class SensorDetalleVm extends BaseVm {
+/// VistaModelo del detalle de un sensor: lectura en vivo, acciones en el
+/// nodo (alerta y prueba de LEDs) y umbral.
+///
+/// El LED ya no se controla a mano desde la app: el nodo trabaja siempre en
+/// automático con el umbral del sensor.
+class SensorDetalleVm extends VmConRefresco {
   SensorDetalleVm({required this.api, required this.deviceId});
 
   final SensaApi api;
@@ -17,44 +20,66 @@ class SensorDetalleVm extends BaseVm {
 
   SensorEstado? _estado;
   Comando? _ultimoComando;
-  bool _enviandoComando = false;
-  Timer? _temporizador;
-  bool _cerrado = false;
+  String? _accionEnCurso;
+  bool _yaRegreseAAutomatico = false;
 
   SensorEstado? get estado => _estado;
   Comando? get ultimoComando => _ultimoComando;
-  bool get enviandoComando => _enviandoComando;
 
-  Future<void> cargar({bool silencioso = false}) async {
-    final resultado = await ejecutar(
-      () async {
-        // Las dos consultas a la vez: el detalle se refresca cada 2 s.
-        final resultados = await Future.wait<Object?>([
-          api.sensor(deviceId),
-          api.ultimoComando(deviceId),
-        ]);
-        return <String, Object?>{
-          'estado': resultados[0],
-          'comando': resultados[1],
-        };
-      },
+  /// Qué acción se está mandando ahora mismo, si hay alguna.
+  String? get accionEnCurso => _accionEnCurso;
+  bool get enviandoAccion => _accionEnCurso != null;
+
+  @override
+  Future<void> refrescar() => cargar(silencioso: true);
+
+  /// Pide el estado del sensor. El último comando solo se pide cuando hace
+  /// falta: en la primera carga y después de mandar una acción. Así el
+  /// refresco automático es una sola petición y no dos.
+  Future<void> cargar({bool silencioso = false, bool conComando = false}) async {
+    final estado = await ejecutar(
+      () => api.sensor(deviceId),
       silencioso: silencioso,
     );
-    if (resultado != null) {
-      _estado = resultado['estado'] as SensorEstado?;
-      _ultimoComando = resultado['comando'] as Comando?;
+    if (estado != null) {
+      _estado = estado;
+      avisar();
+      _regresarAAutomaticoSiHaceFalta(estado);
+    }
+    if (conComando) await _cargarComando();
+  }
+
+  Future<void> _cargarComando() async {
+    if (cerrado) return;
+    final comando = await ejecutar(
+      () => api.ultimoComando(deviceId),
+      silencioso: true,
+    );
+    if (comando != null) {
+      _ultimoComando = comando;
       avisar();
     }
   }
 
-  /// Pide prender, apagar, volver a automático, mandar una alerta o probar
-  /// los LEDs.
-  ///
-  /// Después de pedirlo se refresca enseguida, al segundo y a los 3 s: el
-  /// nodo consulta cada segundo y la alerta o la prueba se confirman al
-  /// terminar (unos 2 s).
-  Future<bool> enviarComando(String accion) async {
-    _enviandoComando = true;
+  /// Si el sensor quedó en modo manual de una versión anterior de la app,
+  /// se le manda `auto` una vez para que vuelva a decidir por el umbral.
+  void _regresarAAutomaticoSiHaceFalta(SensorEstado estado) {
+    if (_yaRegreseAAutomatico || !estado.esManual) return;
+    _yaRegreseAAutomatico = true;
+    unawaited(
+      ejecutar(
+        () => api.enviarComando(deviceId, AccionLed.automatico),
+        silencioso: true,
+      ).then((_) {
+        if (!cerrado) cargar(silencioso: true);
+      }),
+    );
+  }
+
+  /// Manda una acción de un momento al nodo: alerta o prueba de LEDs.
+  Future<bool> enviarAccion(String accion) async {
+    if (_accionEnCurso != null) return false;
+    _accionEnCurso = accion;
     avisar();
 
     final comando = await ejecutar(
@@ -62,7 +87,7 @@ class SensorDetalleVm extends BaseVm {
       silencioso: true,
     );
 
-    _enviandoComando = false;
+    _accionEnCurso = null;
     if (comando == null) {
       avisar();
       return false;
@@ -70,13 +95,23 @@ class SensorDetalleVm extends BaseVm {
 
     _ultimoComando = comando;
     avisar();
-    await cargar(silencioso: true);
-    for (final espera in const [Duration(seconds: 1), Duration(seconds: 3)]) {
+    _seguirComando();
+    return true;
+  }
+
+  /// El nodo consulta cada segundo y confirma al terminar el efecto, así
+  /// que se vuelve a preguntar un par de veces en los siguientes segundos.
+  void _seguirComando() {
+    const esperas = [
+      Duration(seconds: 1),
+      Duration(seconds: 3),
+      Duration(seconds: 5),
+    ];
+    for (final espera in esperas) {
       Timer(espera, () {
-        if (!_cerrado) cargar(silencioso: true);
+        if (!cerrado) _cargarComando();
       });
     }
-    return true;
   }
 
   /// Cambia el umbral de alerta. La validación es la misma del backend.
@@ -113,23 +148,8 @@ class SensorDetalleVm extends BaseVm {
     return true;
   }
 
-  void iniciarRefresco() {
-    _temporizador?.cancel();
-    _temporizador = Timer.periodic(
-      Config.refrescoDetalle,
-      (_) => cargar(silencioso: true),
-    );
-  }
-
-  void detenerRefresco() {
-    _temporizador?.cancel();
-    _temporizador = null;
-  }
-
-  @override
-  void dispose() {
-    _cerrado = true;
-    detenerRefresco();
-    super.dispose();
+  void iniciar() {
+    cargar(conComando: true);
+    iniciarRefresco(Config.refrescoDetalle);
   }
 }

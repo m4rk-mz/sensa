@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/mensajes.dart';
 import '../modelos/usuario.dart';
 import '../servicios/sensa_api.dart';
 import '../tema.dart';
@@ -35,9 +36,7 @@ class _Cuerpo extends StatelessWidget {
     if (vm.aviso != null) {
       final texto = vm.aviso!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(texto)));
+        Mensajes.mostrar(texto);
         vm.limpiarAviso();
       });
     }
@@ -209,12 +208,7 @@ class _TarjetaUsuario extends StatelessWidget {
 
     if (confirmado != true) return;
 
-    final mensajero = ScaffoldMessenger.of(context);
     final ok = await vm.promover(usuario);
-    if (!ok) {
-      mensajero.showSnackBar(
-        SnackBar(content: Text(vm.error ?? 'No se pudo promover.')),
-      );
-    }
+    if (!ok) Mensajes.mostrar(vm.error ?? 'No se pudo promover.');
   }
 }

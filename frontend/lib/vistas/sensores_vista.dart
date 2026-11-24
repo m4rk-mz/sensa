@@ -24,7 +24,7 @@ class SensoresVista extends StatelessWidget {
     return ChangeNotifierProvider<SensoresVm>(
       create: (_) => SensoresVm(api, esAdmin: esAdmin)
         ..cargar()
-        ..iniciarRefresco(),
+        ..iniciar(),
       child: const _Cuerpo(),
     );
   }
@@ -97,16 +97,19 @@ class _Cuerpo extends StatelessWidget {
     final api = context.read<SensaApi>();
     final vm = context.read<SensoresVm>();
 
+    // Mientras el detalle está abierto, la lista deja de pedir datos: no se
+    // ve y solo serviría para competir por la red con la pantalla de enfrente.
+    vm.detenerRefresco();
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ChangeNotifierProvider<SensorDetalleVm>(
           create: (_) => SensorDetalleVm(api: api, deviceId: sensor.id)
-            ..cargar()
-            ..iniciarRefresco(),
+            ..iniciar(),
           child: SensorDetalleVista(nombreInicial: sensor.nombre),
         ),
       ),
     );
+    vm.iniciar();
     await vm.cargar(silencioso: true);
   }
 }
@@ -193,7 +196,7 @@ class TarjetaSensor extends StatelessWidget {
               const Spacer(),
               TextButton(
                 onPressed: alAbrir,
-                child: const Text('Ver y controlar'),
+                child: const Text('Ver detalle'),
               ),
             ],
           ),
@@ -210,10 +213,6 @@ class TarjetaSensor extends StatelessWidget {
     if (estado.alerta) {
       return 'Pasó el umbral de ${estado.umbralC.toStringAsFixed(1)} °C. El '
           'nodo lo está avisando en el lugar con el LED rojo y el zumbador.';
-    }
-    if (estado.esManual) {
-      return 'En modo manual: el LED está forzado desde la app. Vuelve a '
-          'automático ${Formato.faltanPara(estado.modoManualHasta)}.';
     }
     return 'En automático, bajo el umbral de '
         '${estado.umbralC.toStringAsFixed(1)} °C.';
