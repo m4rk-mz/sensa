@@ -31,7 +31,9 @@ partir de la sesión**, nunca del formulario ni del token.
 ### 2.1 Base de datos
 
 1. Crear un proyecto en [supabase.com](https://supabase.com) (plan gratis).
-2. SQL Editor → pegar y ejecutar `sql/01_schema.sql`.
+2. SQL Editor → pegar y ejecutar `sql/01_schema.sql`. Si la BD ya existía de
+   antes del 24 nov 2026, ejecutar también `sql/03_acciones_nodo.sql` (agrega
+   las acciones `alerta` y `probar_leds`; sin eso esos botones dan 500).
 3. Project Settings → API → copiar `Project URL` y la llave `service_role`.
 
 ### 2.2 Backend
@@ -126,7 +128,7 @@ Autenticación del nodo: `X-Device-Token: sensa.<device_id>.<secreto>`.
 
 | Método | Ruta | Quién | Qué hace |
 |---|---|---|---|
-| POST | `/devices/{id}/command` | usuario del negocio | `led_on`, `led_off` o `auto`. |
+| POST | `/devices/{id}/command` | usuario del negocio | `led_on`, `led_off`, `auto`, `alerta` o `probar_leds`. |
 | GET | `/devices/{id}/command` | **nodo** | Comando pendiente + estado deseado y umbral. |
 | POST | `/devices/{id}/ack` | **nodo** | Confirma que aplicó el comando. |
 | GET | `/devices/{id}/commands` | usuario del negocio | Último comando y su estado. |
@@ -155,24 +157,32 @@ Autenticación del nodo: `X-Device-Token: sensa.<device_id>.<secreto>`.
 - **Estados del comando:** `pendiente` → `enviado` (cuando el nodo lo recoge)
   → `confirmado`. Si pasan `COMMAND_TIMEOUT_SECONDS` (15) sin confirmación,
   queda `sin_respuesta`.
-- El nodo reporta su LED real en cada lectura, así que un comando también se
-  confirma por lectura, no solo por el ack.
+- El nodo reporta su LED real en cada lectura, así que un comando del LED
+  también se confirma por lectura, no solo por el ack.
+- **Acciones de un momento:** `alerta` (beeps con el LED rojo) y `probar_leds`
+  (rojo, amarillo y verde, uno por uno) no cambian el modo ni el LED. Solo se
+  confirman con el ack, que el nodo manda al terminar (unos 2 s).
+- **Rapidez:** el nodo consulta cada segundo. Tras la primera verificación
+  Argon2id del token, el backend guarda en memoria el SHA-256 del secreto, así
+  las siguientes no pagan los ~100-300 ms de Argon2. La revisión de comandos
+  vencidos se hace como mucho cada 5 s desde las rutas del nodo.
 - `GET /devices/{id}/command` siempre devuelve el umbral vigente, para que el
   ESP32 pueda seguir en automático si el backend no responde.
 
 ### Contrato para el firmware
 
 ```
-# cada 30 s
+# en cuanto cambia la lectura (mín. 2 s) y al menos cada 10 s
 POST /devices/<ID>/readings
      X-Device-Token: sensa.<ID>.<secreto>
      {"temperatura": 24.5, "humedad": 55.0, "led_estado": false}
   -> {"led_deseado": true, "umbral_c": 27.0, "modo": "manual", ...}
 
-# cada 2-5 s
+# cada 1 s
 GET  /devices/<ID>/command
      X-Device-Token: ...
   -> {"comando": {"id": "...", "accion": "led_on", ...}, "led_deseado": true, ...}
+     accion: led_on | led_off | auto | alerta | probar_leds
 
 POST /devices/<ID>/ack
      {"comando_id": "...", "led_estado": true}

@@ -97,6 +97,22 @@ void main() {
     expect(comando.accionLegible, 'Encender el LED');
   });
 
+  test('alerta y prueba de LEDs no son comandos del LED', () {
+    Comando conAccion(String accion) => Comando.desdeJson(<String, dynamic>{
+          'id': '3f2b1c9e-1a2b-4c3d-9e8f-7a6b5c4d3e2f',
+          'device_id': '1a2b3c4d-1a2b-4c3d-9e8f-7a6b5c4d3e2f',
+          'accion': accion,
+          'estado': 'confirmado',
+          'creado_en': '2026-11-24T07:00:00Z',
+        });
+
+    expect(conAccion(AccionNodo.alerta).esDelLed, isFalse);
+    expect(conAccion(AccionNodo.alerta).accionLegible, 'Mandar alerta');
+    expect(conAccion(AccionNodo.probarLeds).esDelLed, isFalse);
+    expect(conAccion(AccionNodo.probarLeds).accionLegible, 'Probar LEDs');
+    expect(conAccion(AccionLed.encender).esDelLed, isTrue);
+  });
+
   test('reporte del día sin datos trae mensaje', () {
     final reporte = ReporteDelDia.desdeJson(<String, dynamic>{
       'device_id': '3f2b1c9e-1a2b-4c3d-9e8f-7a6b5c4d3e2f',

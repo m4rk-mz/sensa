@@ -44,6 +44,14 @@ class AccionComando(str, enum.Enum):
     LED_ON = "led_on"
     LED_OFF = "led_off"
     AUTO = "auto"
+    # Acciones de un momento: no cambian el modo ni el estado del LED.
+    ALERTA = "alerta"            # beeps + LED rojo en el nodo
+    PROBAR_LEDS = "probar_leds"  # rojo, amarillo y verde, uno por uno
+
+    @property
+    def es_del_led(self) -> bool:
+        """True si cambia el estado o el modo del LED (las tres originales)."""
+        return self in (AccionComando.LED_ON, AccionComando.LED_OFF, AccionComando.AUTO)
 
 
 class EstadoComando(str, enum.Enum):

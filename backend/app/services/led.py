@@ -40,10 +40,14 @@ def aplicar_comando(
     - led_on / led_off: entra en modo manual por `manual_mode_minutes` y
       al terminar vuelve solo a automático.
     - auto: cancela el modo manual de inmediato.
+    - alerta / probar_leds: no tocan el modo; solo se le entregan al nodo.
     """
     momento = ahora_utc()
 
-    if accion is AccionComando.AUTO:
+    actualizado: Optional[Sensor] = None
+    if not accion.es_del_led:
+        pass
+    elif accion is AccionComando.AUTO:
         actualizado = repo_devices.fijar_modo_manual(
             sensor.id, hasta=None, led_forzado=None
         )
@@ -61,9 +65,29 @@ def aplicar_comando(
     return (actualizado or sensor), comando
 
 
-def expirar_comandos_vencidos(momento: Optional[datetime] = None) -> int:
-    """Marca "sin_respuesta" los comandos que el nodo no confirmó."""
+_ultima_expiracion: Optional[datetime] = None
+# El nodo llama cada segundo; revisar vencidos en cada llamada duplicaría las
+# consultas a la BD. Desde las rutas del nodo basta cada pocos segundos.
+SEGUNDOS_ENTRE_EXPIRACIONES = 5
+
+
+def expirar_comandos_vencidos(
+    momento: Optional[datetime] = None, *, espaciado: bool = False
+) -> int:
+    """Marca "sin_respuesta" los comandos que el nodo no confirmó.
+
+    Con `espaciado=True` (rutas del nodo) solo revisa si pasaron
+    `SEGUNDOS_ENTRE_EXPIRACIONES` desde la última vez.
+    """
+    global _ultima_expiracion
     momento = momento or ahora_utc()
+    if (
+        espaciado
+        and _ultima_expiracion is not None
+        and (momento - _ultima_expiracion).total_seconds() < SEGUNDOS_ENTRE_EXPIRACIONES
+    ):
+        return 0
+    _ultima_expiracion = momento
     limite = momento - timedelta(seconds=settings.command_timeout_seconds)
     return repo_commands.expirar_vencidos(limite)
 
@@ -75,7 +99,9 @@ def confirmar_por_lectura(sensor: Sensor, lectura: Lectura) -> None:
     no depende solo del ack.
     """
     comando = repo_commands.abierto_por_device(sensor.id)
-    if comando is None:
+    # Una alerta o una prueba de LEDs no se confirma por lectura: si no, se
+    # marcaría confirmada antes de que el nodo la recoja y nunca sonaría.
+    if comando is None or not comando.accion.es_del_led:
         return
     esperado = led_deseado(sensor, temperatura=lectura.temperatura)
     if lectura.led_reportado == esperado:

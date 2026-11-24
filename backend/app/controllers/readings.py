@@ -58,7 +58,7 @@ def registrar_lectura(
     # El nodo reporta su estado real en cada lectura: si ya coincide con lo
     # pedido, el comando queda confirmado sin depender del ack.
     servicio_led.confirmar_por_lectura(sensor, lectura)
-    servicio_led.expirar_comandos_vencidos(momento)
+    servicio_led.expirar_comandos_vencidos(momento, espaciado=True)
 
     return LecturaRegistradaSalida(
         lectura=lectura,

@@ -13,8 +13,9 @@ class Config {
   );
 
   /// Cada cuánto se refresca "Mis sensores".
-  static const Duration refrescoLista = Duration(seconds: 15);
+  static const Duration refrescoLista = Duration(seconds: 5);
 
-  /// Cada cuánto se refresca el detalle de un sensor.
-  static const Duration refrescoDetalle = Duration(seconds: 10);
+  /// Cada cuánto se refresca el detalle de un sensor. El nodo manda la
+  /// lectura en cuanto cambia, así que la app la ve en 2 a 4 s.
+  static const Duration refrescoDetalle = Duration(seconds: 2);
 }

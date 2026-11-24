@@ -1,8 +1,9 @@
 """Controlador de comandos del LED.
 
 Tres actores:
-- La app pide prender, apagar o volver a automático (POST .../command).
-- El nodo consulta si hay algo pendiente (GET .../command, cada 2-5 s).
+- La app pide prender, apagar, volver a automático, mandar una alerta o
+  probar los LEDs (POST .../command).
+- El nodo consulta si hay algo pendiente (GET .../command, cada 1 s).
 - El nodo confirma que lo aplicó (POST .../ack).
 
 Estados del comando: pendiente -> enviado -> confirmado, o sin_respuesta
@@ -38,10 +39,11 @@ def pedir_comando(
     sensor: Sensor = Depends(sensor_del_usuario),
     usuario: Usuario = Depends(usuario_actual),
 ) -> Comando:
-    """La app fuerza el estado del LED (o lo regresa a automático).
+    """La app fuerza el estado del LED, lo regresa a automático, manda una
+    alerta (beeps) o pide probar los LEDs.
 
     El modo manual dura `MANUAL_MODE_MINUTES` y después vuelve solo a
-    automático.
+    automático. La alerta y la prueba no cambian el modo.
     """
     if not sensor.activo:
         raise HTTPException(
@@ -61,7 +63,7 @@ def consultar_comando(
     backend se cae puede seguir en automático con lo último que guardó.
     """
     momento = ahora_utc()
-    servicio_led.expirar_comandos_vencidos(momento)
+    servicio_led.expirar_comandos_vencidos(momento, espaciado=True)
 
     comando = repo_commands.abierto_por_device(sensor.id)
     if comando is not None:
