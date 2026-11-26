@@ -203,6 +203,12 @@ class Vacio extends StatelessWidget {
 }
 
 /// Tarjeta blanca con borde, como en la maqueta.
+///
+/// La barra de color de la alerta se pinta aparte, encima y recortada con
+/// las esquinas redondas. Antes iba como el borde izquierdo de un `Border`
+/// con colores distintos por lado más `borderRadius`, y Flutter no sabe
+/// pintar esa combinación: lanzaba una excepción al pintar y la tarjeta se
+/// quedaba en blanco justo cuando el sensor estaba en alerta.
 class Tarjeta extends StatelessWidget {
   const Tarjeta({
     super.key,
@@ -219,24 +225,40 @@ class Tarjeta extends StatelessWidget {
   final EdgeInsets relleno;
   final Color? fondo;
 
+  static final BorderRadius _radio = BorderRadius.circular(14);
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final caja = DecoratedBox(
       decoration: BoxDecoration(
         color: fondo ?? ColoresSensa.superficie,
-        border: Border(
-          top: const BorderSide(color: ColoresSensa.borde),
-          right: const BorderSide(color: ColoresSensa.borde),
-          bottom: const BorderSide(color: ColoresSensa.borde),
-          left: BorderSide(
-            color: borde ?? ColoresSensa.borde,
-            width: borde == null ? 1 : 4,
-          ),
-        ),
-        borderRadius: BorderRadius.circular(14),
+        // Un solo color y un solo grosor: es lo único que Flutter puede
+        // pintar junto con esquinas redondas.
+        border: Border.all(color: borde ?? ColoresSensa.borde),
+        borderRadius: _radio,
       ),
-      padding: relleno,
-      child: hijo,
+      child: Padding(
+        padding: borde == null ? relleno : relleno.copyWith(left: relleno.left + 3),
+        child: hijo,
+      ),
+    );
+
+    if (borde == null) return caja;
+
+    return ClipRRect(
+      borderRadius: _radio,
+      child: Stack(
+        children: [
+          caja,
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 4,
+            child: ColoredBox(color: borde!),
+          ),
+        ],
+      ),
     );
   }
 }

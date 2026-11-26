@@ -77,7 +77,9 @@ class _Cuerpo extends StatelessWidget {
             TarjetaSensor(
               estado: sensor,
               alAbrir: () => _abrir(context, sensor),
-              alEliminar: esAdmin ? () => _eliminar(context, sensor, vm) : null,
+              alEliminar: esAdmin && !vm.eliminandoA(sensor.id)
+                  ? () => _eliminar(context, sensor, vm)
+                  : null,
             ),
             const SizedBox(height: 14),
           ],
@@ -90,7 +92,7 @@ class _Cuerpo extends StatelessWidget {
     if (vm.sensores.isEmpty) return null;
     final partes = <String>[
       if (vm.enAlerta > 0) '${vm.enAlerta} en alerta',
-      '${vm.sensores.length - vm.enAlerta} sin alerta',
+      if (vm.normales > 0) '${vm.normales} ${vm.normales == 1 ? 'normal' : 'normales'}',
       if (vm.sinDatos > 0) '${vm.sinDatos} sin datos',
     ];
     return partes.join(' · ');
@@ -129,8 +131,7 @@ class _Cuerpo extends StatelessWidget {
         title: Text('¿Eliminar "${sensor.nombre}"?'),
         content: const Text(
           'Se borra el sensor junto con sus lecturas, sus comandos y sus '
-          'reportes. Esto no se puede deshacer.\n\nSi solo quieres sacarlo '
-          'de la lista sin perder el historial, cámbialo a inactivo.',
+          'reportes. Esto no se puede deshacer.',
           style: TextStyle(fontSize: 13.5, height: 1.5),
         ),
         actions: [
@@ -151,12 +152,8 @@ class _Cuerpo extends StatelessWidget {
     );
     if (confirmado != true) return;
 
-    final ok = await vm.eliminar(sensor);
-    Mensajes.mostrar(
-      ok
-          ? 'Se eliminó "${sensor.nombre}".'
-          : vm.error ?? 'No se pudo eliminar el sensor.',
-    );
+    final error = await vm.eliminar(sensor);
+    Mensajes.mostrar(error ?? 'Se eliminó "${sensor.nombre}".');
   }
 }
 

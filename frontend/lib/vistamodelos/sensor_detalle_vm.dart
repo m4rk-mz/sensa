@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../core/config.dart';
+import '../core/formato.dart';
 import '../core/validaciones.dart';
 import '../modelos/comando.dart';
 import '../modelos/lectura.dart';
@@ -24,15 +25,19 @@ class SensorDetalleVm extends VmConRefresco {
   List<Lectura> _lecturas = const <Lectura>[];
   String? _accionEnCurso;
   bool _yaRegreseAAutomatico = false;
-  int _vueltas = 0;
+  String _firma = '';
+
+  /// Hora de la lectura más nueva que ya está en la tabla, y cuándo se pidió
+  /// la tabla por última vez.
+  DateTime? _lecturaEnTabla;
+  DateTime _tablaPedidaEn = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Cuántas lecturas se piden para la tabla de registros.
   static const int lecturasEnTabla = 20;
 
-  /// Cada cuántas vueltas del refresco se vuelve a pedir la tabla. Con el
-  /// detalle a 2 s, la tabla se actualiza cada 6 s: suficiente para verla
-  /// crecer sin triplicar las peticiones.
-  static const int vueltasPorTabla = 3;
+  /// Lo más seguido que se vuelve a pedir la tabla. Solo se pide si llegó
+  /// una lectura nueva: con el nodo quieto no cuesta ninguna petición.
+  static const Duration tablaComoMucho = Duration(seconds: 4);
 
   SensorEstado? get estado => _estado;
   Comando? get ultimoComando => _ultimoComando;
@@ -43,13 +48,7 @@ class SensorDetalleVm extends VmConRefresco {
   bool get enviandoAccion => _accionEnCurso != null;
 
   @override
-  Future<void> refrescar() async {
-    _vueltas++;
-    await cargar(
-      silencioso: true,
-      conLecturas: _vueltas % vueltasPorTabla == 0,
-    );
-  }
+  Future<void> refrescar() => cargar(silencioso: true);
 
   /// Pide el estado del sensor. El último comando solo se pide cuando hace
   /// falta: en la primera carga y después de mandar una acción. Así el
@@ -64,25 +63,47 @@ class SensorDetalleVm extends VmConRefresco {
       silencioso: silencioso,
     );
     if (estado != null) {
-      _estado = estado;
-      avisar();
+      _ponerEstado(estado);
       _regresarAAutomaticoSiHaceFalta(estado);
     }
     if (conComando) await _cargarComando();
-    if (conLecturas) await cargarLecturas();
+    if (conLecturas || _hayLecturaNueva()) await cargarLecturas();
+  }
+
+  /// Solo redibuja si cambió algo de lo que se ve, incluido el "hace X s".
+  void _ponerEstado(SensorEstado estado) {
+    final firma =
+        '${estado.firma}|${Formato.haceCuanto(estado.ultimaLecturaEn)}';
+    _estado = estado;
+    if (firma == _firma) return;
+    _firma = firma;
+    avisar();
+  }
+
+  /// True si el sensor ya tiene una lectura más nueva que la de la tabla y
+  /// pasó el tiempo mínimo desde la última vez que se pidió.
+  bool _hayLecturaNueva() {
+    final ultima = _estado?.ultimaLecturaEn;
+    if (ultima == null || ultima == _lecturaEnTabla) return false;
+    return DateTime.now().difference(_tablaPedidaEn) >= tablaComoMucho;
   }
 
   /// Las últimas lecturas guardadas, tal como están en la tabla `readings`.
   Future<void> cargarLecturas() async {
     if (cerrado) return;
+    _tablaPedidaEn = DateTime.now();
     final lista = await ejecutar(
       () => api.lecturas(deviceId, horas: 24, limite: lecturasEnTabla),
       silencioso: true,
     );
-    if (lista != null) {
-      _lecturas = lista;
-      avisar();
-    }
+    if (lista == null) return;
+    // La tabla queda al día con la lectura que el estado ya conocía; si el
+    // nodo mandó otra mientras tanto, la siguiente vuelta la trae.
+    _lecturaEnTabla = _estado?.ultimaLecturaEn;
+    final cambio = _lecturas.length != lista.length ||
+        (lista.isNotEmpty && _lecturas.first.id != lista.first.id);
+    _lecturas = lista;
+    if (cambio) avisar();
   }
 
   Future<void> _cargarComando() async {

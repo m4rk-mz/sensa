@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 /// Formatos de texto que se repiten en varias pantallas.
 class Formato {
   static final DateFormat _hora = DateFormat('HH:mm');
+  static final DateFormat _horaSegundos = DateFormat('HH:mm:ss');
   static final DateFormat _fechaLarga = DateFormat("EEEE d 'de' MMMM", 'es_MX');
   static final DateFormat _fechaCorta = DateFormat('d MMM', 'es_MX');
 
@@ -14,6 +15,11 @@ class Formato {
 
   static String hora(DateTime? fecha) =>
       fecha == null ? '--' : _hora.format(fecha.toLocal());
+
+  /// Con segundos: el nodo manda varias lecturas por minuto y sin ellos la
+  /// tabla de lecturas se llenaba de renglones con la misma hora.
+  static String horaConSegundos(DateTime? fecha) =>
+      fecha == null ? '--' : _horaSegundos.format(fecha.toLocal());
 
   static String fechaLarga(DateTime fecha) {
     final texto = _fechaLarga.format(fecha);

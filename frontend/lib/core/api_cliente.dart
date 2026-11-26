@@ -119,13 +119,34 @@ class ApiCliente {
     );
   }
 
+  /// Textos genéricos de FastAPI/Starlette, en inglés. No dicen nada útil a
+  /// quien usa la app, así que se cambian por el mensaje del código.
+  static const Set<String> _detallesGenericos = {
+    'Not Found',
+    'Method Not Allowed',
+    'Internal Server Error',
+    'Unauthorized',
+    'Forbidden',
+  };
+
   String _mensaje(int estado, dynamic datos) {
     if (datos is Map) {
       final detalle = datos['detail'];
-      if (detalle is String && detalle.isNotEmpty) return detalle;
+      if (detalle is String &&
+          detalle.isNotEmpty &&
+          !_detallesGenericos.contains(detalle)) {
+        return detalle;
+      }
       if (detalle is List && detalle.isNotEmpty) return 'Hay datos inválidos.';
     }
     switch (estado) {
+      // 405: la ruta existe pero el servidor no acepta ese método. Pasa
+      // cuando la app es más nueva que el backend que está corriendo.
+      case 405:
+        return 'El servidor todavía no tiene esta función. Actualiza el '
+            'backend a la última versión y reinícialo.';
+      case 500:
+        return 'El servidor tuvo un error. Revisa la consola de uvicorn.';
       case 401:
         return 'Tu sesión expiró. Vuelve a iniciar sesión.';
       case 403:

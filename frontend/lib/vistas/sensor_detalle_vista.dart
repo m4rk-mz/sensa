@@ -32,12 +32,12 @@ class SensorDetalleVista extends StatelessWidget {
           IconButton(
             tooltip: 'Actualizar',
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => vm.cargar(conComando: true),
+            onPressed: () => vm.cargar(conComando: true, conLecturas: true),
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => vm.cargar(conComando: true),
+        onRefresh: () => vm.cargar(conComando: true, conLecturas: true),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
           children: [
@@ -52,13 +52,10 @@ class SensorDetalleVista extends StatelessWidget {
                 child: Center(child: CircularProgressIndicator()),
               )
             else ...[
-              _TarjetaLectura(estado: estado),
+              _TarjetaLectura(vm: vm, estado: estado),
               const SizedBox(height: 13),
 
               _TarjetaAcciones(vm: vm, estado: estado),
-              const SizedBox(height: 13),
-
-              _TarjetaUmbral(vm: vm, estado: estado),
               const SizedBox(height: 13),
 
               _TarjetaLecturas(vm: vm),
@@ -75,8 +72,9 @@ class SensorDetalleVista extends StatelessWidget {
 
 /// Tarjeta principal: la lectura grande, con el estado y cuándo llegó.
 class _TarjetaLectura extends StatelessWidget {
-  const _TarjetaLectura({required this.estado});
+  const _TarjetaLectura({required this.vm, required this.estado});
 
+  final SensorDetalleVm vm;
   final SensorEstado estado;
 
   @override
@@ -169,6 +167,7 @@ class _TarjetaLectura extends StatelessWidget {
                   etiqueta: 'Umbral',
                   valor: '${estado.umbralC.toStringAsFixed(1)} °C',
                   alineadoAlFinal: true,
+                  alTocar: () => _editarUmbral(context, vm, estado),
                 ),
               ),
             ],
@@ -209,6 +208,7 @@ class _Medida extends StatelessWidget {
     required this.etiqueta,
     required this.valor,
     this.alineadoAlFinal = false,
+    this.alTocar,
   });
 
   final IconData icono;
@@ -216,8 +216,33 @@ class _Medida extends StatelessWidget {
   final String valor;
   final bool alineadoAlFinal;
 
+  /// Si se da, el valor se puede tocar para editarlo (el umbral).
+  final VoidCallback? alTocar;
+
   @override
   Widget build(BuildContext context) {
+    final contenido = _contenido();
+    if (alTocar == null) return contenido;
+    return Align(
+      alignment:
+          alineadoAlFinal ? Alignment.centerRight : Alignment.centerLeft,
+      // Material transparente: sin él, el efecto al tocar se pinta debajo
+      // del fondo blanco de la tarjeta y no se ve.
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: alTocar,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            child: contenido,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _contenido() {
     return Column(
       crossAxisAlignment:
           alineadoAlFinal ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -239,9 +264,22 @@ class _Medida extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 4),
-        Text(
-          valor,
-          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              valor,
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+            ),
+            if (alTocar != null) ...[
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.edit_outlined,
+                size: 16,
+                color: ColoresSensa.indigo,
+              ),
+            ],
+          ],
         ),
       ],
     );
@@ -272,9 +310,9 @@ class _AvisoAlerta extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Por encima del umbral desde las '
-              '${Formato.hora(estado.ultimaLecturaEn)}. El nodo lo está '
-              'avisando con el LED rojo y el zumbador.',
+              'Pasó el umbral de ${estado.umbralC.toStringAsFixed(1)} °C '
+              '(lectura de las ${Formato.horaConSegundos(estado.ultimaLecturaEn)}). '
+              'El nodo lo está avisando con el LED rojo y el zumbador.',
               style: const TextStyle(
                 fontSize: 13,
                 height: 1.45,
@@ -380,34 +418,41 @@ class _BotonAccion extends StatelessWidget {
               color: destacado ? Colors.white : ColoresSensa.indigoOscuro,
             ),
           )
-        : Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icono, size: 18),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  texto,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+        // Con letra grande del sistema el texto se encoge un poco en vez de
+        // cortarse con "...": antes se leía "Mandar al…".
+        : FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icono, size: 18),
+                const SizedBox(width: 6),
+                Text(texto, maxLines: 1),
+              ],
+            ),
           );
+
+    const relleno = EdgeInsets.symmetric(horizontal: 10);
+    const textoBoton = TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600);
 
     if (destacado) {
       return FilledButton(
         style: FilledButton.styleFrom(
           backgroundColor: ColoresSensa.ambar,
           minimumSize: const Size.fromHeight(46),
+          padding: relleno,
+          textStyle: textoBoton,
         ),
         onPressed: alTocar,
         child: hijo,
       );
     }
     return OutlinedButton(
-      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(46),
+        padding: relleno,
+        textStyle: textoBoton,
+      ),
       onPressed: alTocar,
       child: hijo,
     );
@@ -469,97 +514,63 @@ class _EstadoAccion extends StatelessWidget {
   }
 }
 
-/// Umbral del sensor, con edición validada.
-class _TarjetaUmbral extends StatelessWidget {
-  const _TarjetaUmbral({required this.vm, required this.estado});
+/// Cambia el umbral de alerta, con las mismas reglas del backend.
+///
+/// Antes tenía su propia tarjeta, que repetía el umbral que ya sale en la
+/// tarjeta de la lectura. Ahora se edita tocando ese mismo valor.
+Future<void> _editarUmbral(
+  BuildContext context,
+  SensorDetalleVm vm,
+  SensorEstado estado,
+) async {
+  final controlador = TextEditingController(
+    text: estado.umbralC.toStringAsFixed(1),
+  );
+  final formulario = GlobalKey<FormState>();
 
-  final SensorDetalleVm vm;
-  final SensorEstado estado;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tarjeta(
-      relleno: const EdgeInsets.fromLTRB(18, 10, 10, 10),
-      hijo: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Umbral de alerta',
-                  style: TextStyle(fontSize: 12, color: ColoresSensa.tintaTenue),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${estado.umbralC.toStringAsFixed(1)} °C',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+  final nuevo = await showDialog<String>(
+    context: context,
+    builder: (dialogo) => AlertDialog(
+      title: const Text('Umbral de alerta'),
+      content: Form(
+        key: formulario,
+        child: TextFormField(
+          controller: controlador,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Grados centígrados',
+            helperText: 'El DHT11 mide de 0 a 50 °C.',
           ),
-          TextButton(
-            onPressed: () => _editar(context),
-            child: const Text('Cambiar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _editar(BuildContext context) async {
-    final controlador = TextEditingController(
-      text: estado.umbralC.toStringAsFixed(1),
-    );
-    final formulario = GlobalKey<FormState>();
-
-    final nuevo = await showDialog<String>(
-      context: context,
-      builder: (dialogo) => AlertDialog(
-        title: const Text('Umbral de alerta'),
-        content: Form(
-          key: formulario,
-          child: TextFormField(
-            controller: controlador,
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Grados centígrados',
-              helperText: 'El DHT11 mide de 0 a 50 °C.',
-            ),
-            validator: Validaciones.umbral,
-          ),
+          validator: Validaciones.umbral,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogo).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (formulario.currentState!.validate()) {
-                Navigator.of(dialogo).pop(controlador.text);
-              }
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
       ),
-    );
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogo).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (formulario.currentState!.validate()) {
+              Navigator.of(dialogo).pop(controlador.text);
+            }
+          },
+          child: const Text('Guardar'),
+        ),
+      ],
+    ),
+  );
 
-    controlador.dispose();
-    if (nuevo == null) return;
+  controlador.dispose();
+  if (nuevo == null) return;
 
-    final ok = await vm.cambiarUmbral(nuevo);
-    Mensajes.mostrar(
-      ok
-          ? 'Umbral actualizado. El nodo lo recibe en su próxima lectura.'
-          : vm.error ?? 'No se pudo actualizar el umbral.',
-    );
-  }
+  final ok = await vm.cambiarUmbral(nuevo);
+  Mensajes.mostrar(
+    ok
+        ? 'Umbral actualizado. El nodo lo recibe en su próxima lectura.'
+        : vm.error ?? 'No se pudo actualizar el umbral.',
+  );
 }
 
 /// Las lecturas guardadas, como se ven en la tabla `readings` de la base.
@@ -660,7 +671,8 @@ class _FilaLectura extends StatelessWidget {
                 : ColoresSensa.tinta,
           );
 
-    final hora = esEncabezado ? 'HORA' : Formato.hora(lectura!.creadoEn);
+    final hora =
+        esEncabezado ? 'HORA' : Formato.horaConSegundos(lectura!.creadoEn);
     final temp = esEncabezado
         ? 'TEMP.'
         : '${lectura!.temperatura.toStringAsFixed(1)} °C';
@@ -672,9 +684,9 @@ class _FilaLectura extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
         children: [
-          SizedBox(width: 52, child: Text(hora, style: estilo)),
+          SizedBox(width: 84, child: Text(hora, style: estilo)),
           Expanded(child: Text(temp, style: estilo)),
-          SizedBox(width: 54, child: Text(hum, style: estilo)),
+          Expanded(child: Text(hum, style: estilo)),
           SizedBox(
             width: 26,
             child: esEncabezado

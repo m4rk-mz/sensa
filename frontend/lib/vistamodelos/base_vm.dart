@@ -49,12 +49,16 @@ abstract class BaseVm extends ChangeNotifier {
   /// Corre una llamada a la API cuidando el estado de carga y los errores.
   ///
   /// Con `silencioso: true` no prende el indicador de carga: se usa en los
-  /// refrescos automáticos, para que la pantalla no parpadee.
+  /// refrescos automáticos, para que la pantalla no parpadee. Además, en
+  /// silencioso solo avisa a la vista si cambió el error: los datos nuevos
+  /// los avisa quien llama, y solo si son distintos a los que ya tenía. Así
+  /// un refresco que trae lo mismo no redibuja la pantalla.
   @protected
   Future<T?> ejecutar<T>(
     Future<T> Function() accion, {
     bool silencioso = false,
   }) async {
+    final errorAntes = _error;
     if (!silencioso) {
       _cargando = true;
       _error = null;
@@ -75,7 +79,7 @@ abstract class BaseVm extends ChangeNotifier {
       return null;
     } finally {
       _cargando = false;
-      avisar();
+      if (!silencioso || _error != errorAntes) avisar();
     }
   }
 }
