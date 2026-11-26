@@ -1,6 +1,7 @@
 import '../modelos/panel.dart';
 import '../servicios/sensa_api.dart';
 import 'base_vm.dart';
+import 'historial_vm.dart';
 
 /// VistaModelo del panel del administrador: indicadores, tabla y gráfica.
 ///
@@ -44,6 +45,7 @@ class PanelAdminVm extends BaseVm {
     _aviso = null;
     final reportes = await ejecutar(() => api.generarReportes());
     if (reportes == null) return;
+    if (reportes.isNotEmpty) HistorialVm.avisarReporteGuardado();
 
     _aviso = reportes.isEmpty
         ? 'No había lecturas válidas para generar reportes.'

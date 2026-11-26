@@ -4,6 +4,7 @@ import '../modelos/reporte.dart';
 import '../modelos/sensor.dart';
 import '../servicios/sensa_api.dart';
 import 'base_vm.dart';
+import 'historial_vm.dart';
 
 /// Promedio de una hora del día, para la gráfica del reporte.
 class PromedioHora {
@@ -75,6 +76,7 @@ class ReporteVm extends BaseVm {
       return false;
     }
     _errorGenerar = null;
+    HistorialVm.avisarReporteGuardado();
 
     _reporte = generado;
     avisar();
