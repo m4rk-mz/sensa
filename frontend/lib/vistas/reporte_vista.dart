@@ -236,7 +236,7 @@ class _BotonGenerar extends StatelessWidget {
     Mensajes.mostrar(
       conDatos
           ? 'Reporte de hoy generado y guardado.'
-          : vm.error ??
+          : vm.errorGenerar ??
               vm.reporte?.mensaje ??
               'Todavía no hay lecturas válidas de hoy.',
     );

@@ -1,3 +1,4 @@
+import '../core/api_error.dart';
 import '../modelos/lectura.dart';
 import '../modelos/reporte.dart';
 import '../modelos/sensor.dart';
@@ -41,6 +42,10 @@ class ReporteVm extends BaseVm {
   bool _generando = false;
   bool get generando => _generando;
 
+  /// Error del botón "Generar", para el aviso de abajo.
+  String? _errorGenerar;
+  String? get errorGenerar => _errorGenerar;
+
   /// Genera y guarda el reporte de hoy con las lecturas que ya hay.
   ///
   /// La tarea programada lo hace sola a las 00:10, para el día anterior.
@@ -53,16 +58,23 @@ class ReporteVm extends BaseVm {
     _generando = true;
     avisar();
 
-    final generado = await ejecutar(
-      () => api.generarReporteDelDia(sensor.id),
-      silencioso: true,
-    );
+    // El error de este botón se muestra en un aviso y no en la caja de
+    // arriba: es de la acción, no de la carga de la pantalla.
+    ReporteDelDia? generado;
+    try {
+      generado = await api.generarReporteDelDia(sensor.id);
+    } on ApiError catch (e) {
+      _errorGenerar = e.mensaje;
+    } catch (e) {
+      _errorGenerar = 'No se pudo generar el reporte: $e';
+    }
 
     _generando = false;
     if (generado == null) {
       avisar();
       return false;
     }
+    _errorGenerar = null;
 
     _reporte = generado;
     avisar();
