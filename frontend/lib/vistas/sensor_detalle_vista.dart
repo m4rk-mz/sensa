@@ -523,21 +523,67 @@ Future<void> _editarUmbral(
   SensorDetalleVm vm,
   SensorEstado estado,
 ) async {
-  final controlador = TextEditingController(
-    text: estado.umbralC.toStringAsFixed(1),
-  );
-  final formulario = GlobalKey<FormState>();
-
   final nuevo = await showDialog<String>(
     context: context,
-    builder: (dialogo) => AlertDialog(
+    builder: (_) => _DialogoUmbral(inicial: estado.umbralC),
+  );
+  if (nuevo == null) return;
+
+  final ok = await vm.cambiarUmbral(nuevo);
+  Mensajes.mostrar(
+    ok
+        ? 'Umbral actualizado. El nodo lo recibe en su próxima lectura.'
+        : vm.error ?? 'No se pudo actualizar el umbral.',
+  );
+}
+
+/// Diálogo del umbral. Es un StatefulWidget para que el controlador del
+/// campo viva lo mismo que el diálogo.
+///
+/// Antes el controlador se desechaba en cuanto `showDialog` regresaba, pero
+/// el diálogo todavía estaba en pantalla haciendo su animación de salida y
+/// el campo seguía usándolo: "TextEditingController was used after being
+/// disposed", la pantalla roja al cambiar el umbral. Ahora se desecha en
+/// [State.dispose], cuando el diálogo ya salió del árbol.
+class _DialogoUmbral extends StatefulWidget {
+  const _DialogoUmbral({required this.inicial});
+
+  final double inicial;
+
+  @override
+  State<_DialogoUmbral> createState() => _DialogoUmbralEstado();
+}
+
+class _DialogoUmbralEstado extends State<_DialogoUmbral> {
+  late final TextEditingController _controlador = TextEditingController(
+    text: widget.inicial.toStringAsFixed(1),
+  );
+  final GlobalKey<FormState> _formulario = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    _controlador.dispose();
+    super.dispose();
+  }
+
+  void _guardar() {
+    if (_formulario.currentState?.validate() ?? false) {
+      Navigator.of(context).pop(_controlador.text);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
       title: const Text('Umbral de alerta'),
       content: Form(
-        key: formulario,
+        key: _formulario,
         child: TextFormField(
-          controller: controlador,
+          controller: _controlador,
           autofocus: true,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.done,
+          onFieldSubmitted: (_) => _guardar(),
           decoration: const InputDecoration(
             labelText: 'Grados centígrados',
             helperText: 'El DHT11 mide de 0 a 50 °C.',
@@ -547,30 +593,13 @@ Future<void> _editarUmbral(
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(dialogo).pop(),
+          onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancelar'),
         ),
-        FilledButton(
-          onPressed: () {
-            if (formulario.currentState!.validate()) {
-              Navigator.of(dialogo).pop(controlador.text);
-            }
-          },
-          child: const Text('Guardar'),
-        ),
+        FilledButton(onPressed: _guardar, child: const Text('Guardar')),
       ],
-    ),
-  );
-
-  controlador.dispose();
-  if (nuevo == null) return;
-
-  final ok = await vm.cambiarUmbral(nuevo);
-  Mensajes.mostrar(
-    ok
-        ? 'Umbral actualizado. El nodo lo recibe en su próxima lectura.'
-        : vm.error ?? 'No se pudo actualizar el umbral.',
-  );
+    );
+  }
 }
 
 /// Las lecturas guardadas, como se ven en la tabla `readings` de la base.

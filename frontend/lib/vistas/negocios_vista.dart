@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../core/controladores.dart';
 import '../core/mensajes.dart';
 import '../core/validaciones.dart';
 import '../modelos/negocio.dart';
@@ -232,10 +233,7 @@ Future<void> _altaNegocio(BuildContext context, NegociosVm vm) async {
     );
   }
 
-  nombre.dispose();
-  usuarioNombre.dispose();
-  usuarioEmail.dispose();
-  usuarioPassword.dispose();
+  desecharAlCerrar([nombre, usuarioNombre, usuarioEmail, usuarioPassword]);
 }
 
 /// El bloque del primer usuario es opcional: si los tres campos están
@@ -320,8 +318,7 @@ Future<void> _altaSensor(
     }
   }
 
-  nombre.dispose();
-  umbral.dispose();
+  desecharAlCerrar([nombre, umbral]);
 }
 
 /// El token del nodo se muestra una sola vez: en la BD solo queda su hash.
