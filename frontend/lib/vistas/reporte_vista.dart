@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/formato.dart';
+import '../core/mensajes.dart';
 import '../modelos/sensor.dart';
 import '../servicios/sensa_api.dart';
 import '../tema.dart';
@@ -74,6 +75,11 @@ class _Cuerpo extends StatelessWidget {
                 icono: Icons.insert_chart_outlined,
               ),
             ),
+
+          if (vm.sensores.isNotEmpty) ...[
+            _BotonGenerar(vm: vm),
+            const SizedBox(height: 16),
+          ],
 
           if (vm.reporte != null && reporte == null && !vm.cargando)
             Tarjeta(
@@ -161,6 +167,78 @@ class _Cuerpo extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Genera el reporte de hoy sin esperar a la tarea de medianoche.
+class _BotonGenerar extends StatelessWidget {
+  const _BotonGenerar({required this.vm});
+
+  final ReporteVm vm;
+
+  @override
+  Widget build(BuildContext context) {
+    final guardado = vm.reporte?.reporte?.generadoEn;
+
+    return Tarjeta(
+      relleno: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+      hijo: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Reporte de hoy',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                ),
+                onPressed: vm.generando ? null : () => _generar(),
+                icon: vm.generando
+                    ? const SizedBox(
+                        height: 15,
+                        width: 15,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.bolt_rounded, size: 18),
+                label: const Text('Generar'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            guardado == null
+                ? 'El reporte del día anterior lo deja listo el servidor a '
+                    'las 00:10. Con este botón se guarda el de hoy al '
+                    'momento, con las lecturas que ya hay.'
+                : 'Guardado ${Formato.haceCuanto(guardado)} '
+                    '(${Formato.hora(guardado)}). Vuelve a generarlo para '
+                    'incluir las lecturas más nuevas.',
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: ColoresSensa.tintaTenue,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _generar() async {
+    final conDatos = await vm.generarReporteDeHoy();
+    Mensajes.mostrar(
+      conDatos
+          ? 'Reporte de hoy generado y guardado.'
+          : vm.errorGenerar ??
+              vm.reporte?.mensaje ??
+              'Todavía no hay lecturas válidas de hoy.',
     );
   }
 }

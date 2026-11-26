@@ -1,8 +1,10 @@
+import '../core/api_error.dart';
 import '../modelos/lectura.dart';
 import '../modelos/reporte.dart';
 import '../modelos/sensor.dart';
 import '../servicios/sensa_api.dart';
 import 'base_vm.dart';
+import 'historial_vm.dart';
 
 /// Promedio de una hora del día, para la gráfica del reporte.
 class PromedioHora {
@@ -37,6 +39,50 @@ class ReporteVm extends BaseVm {
   List<PromedioHora> get porHora => _porHora;
 
   double get umbral => _seleccionado?.umbralC ?? 0;
+
+  bool _generando = false;
+  bool get generando => _generando;
+
+  /// Error del botón "Generar", para el aviso de abajo.
+  String? _errorGenerar;
+  String? get errorGenerar => _errorGenerar;
+
+  /// Genera y guarda el reporte de hoy con las lecturas que ya hay.
+  ///
+  /// La tarea programada lo hace sola a las 00:10, para el día anterior.
+  /// Esto deja el de hoy guardado al momento, que es lo que hace falta para
+  /// demostrarlo el mismo día de la exposición.
+  Future<bool> generarReporteDeHoy() async {
+    final sensor = _seleccionado;
+    if (sensor == null || _generando) return false;
+
+    _generando = true;
+    avisar();
+
+    // El error de este botón se muestra en un aviso y no en la caja de
+    // arriba: es de la acción, no de la carga de la pantalla.
+    ReporteDelDia? generado;
+    try {
+      generado = await api.generarReporteDelDia(sensor.id);
+    } on ApiError catch (e) {
+      _errorGenerar = e.mensaje;
+    } catch (e) {
+      _errorGenerar = 'No se pudo generar el reporte: $e';
+    }
+
+    _generando = false;
+    if (generado == null) {
+      avisar();
+      return false;
+    }
+    _errorGenerar = null;
+    HistorialVm.avisarReporteGuardado();
+
+    _reporte = generado;
+    avisar();
+    await _cargarDelSensor();
+    return generado.reporte != null;
+  }
 
   Future<void> cargar() async {
     final lista = await ejecutar(api.misSensores);

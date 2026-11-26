@@ -203,6 +203,13 @@ class Vacio extends StatelessWidget {
 }
 
 /// Tarjeta blanca con borde, como en la maqueta.
+///
+/// La barra de color de la alerta se pinta aparte, encima y recortada con
+/// las esquinas redondas, y el árbol de widgets es el mismo con alerta y
+/// sin ella. Antes iba como el borde izquierdo de un `Border`
+/// con colores distintos por lado más `borderRadius`, y Flutter no sabe
+/// pintar esa combinación: lanzaba una excepción al pintar y la tarjeta se
+/// quedaba en blanco justo cuando el sensor estaba en alerta.
 class Tarjeta extends StatelessWidget {
   const Tarjeta({
     super.key,
@@ -219,24 +226,46 @@ class Tarjeta extends StatelessWidget {
   final EdgeInsets relleno;
   final Color? fondo;
 
+  static final BorderRadius _radio = BorderRadius.circular(14);
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: fondo ?? ColoresSensa.superficie,
-        border: Border(
-          top: const BorderSide(color: ColoresSensa.borde),
-          right: const BorderSide(color: ColoresSensa.borde),
-          bottom: const BorderSide(color: ColoresSensa.borde),
-          left: BorderSide(
-            color: borde ?? ColoresSensa.borde,
-            width: borde == null ? 1 : 4,
-          ),
+    // El árbol es el mismo con alerta y sin ella; solo cambian colores y el
+    // ancho de la barra. Antes, al prender o apagar la alerta (por ejemplo
+    // al cambiar el umbral), la tarjeta cambiaba de forma y Flutter tiraba y
+    // volvía a crear todo su contenido.
+    final conBarra = borde != null;
+    return ClipRRect(
+      borderRadius: _radio,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: fondo ?? ColoresSensa.superficie,
+          // Un solo color y un solo grosor: es lo único que Flutter puede
+          // pintar junto con esquinas redondas.
+          border: Border.all(color: borde ?? ColoresSensa.borde),
+          borderRadius: _radio,
         ),
-        borderRadius: BorderRadius.circular(14),
+        // passthrough: el contenido recibe el mismo ancho que la tarjeta,
+        // igual que cuando era un Container.
+        child: Stack(
+          fit: StackFit.passthrough,
+          children: [
+            Padding(
+              padding: conBarra
+                  ? relleno.copyWith(left: relleno.left + 3)
+                  : relleno,
+              child: hijo,
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: conBarra ? 4 : 0,
+              child: ColoredBox(color: borde ?? const Color(0x00000000)),
+            ),
+          ],
+        ),
       ),
-      padding: relleno,
-      child: hijo,
     );
   }
 }

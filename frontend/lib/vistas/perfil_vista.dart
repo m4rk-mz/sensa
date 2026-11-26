@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/config.dart';
+import '../core/mensajes.dart';
 import '../core/validaciones.dart';
+import '../servicios/sensa_api.dart';
 import '../tema.dart';
 import '../vistamodelos/sesion_vm.dart';
 import 'widgets/comunes.dart';
@@ -20,6 +22,9 @@ class _PerfilVistaState extends State<PerfilVista> {
   final _actual = TextEditingController();
   final _nueva = TextEditingController();
 
+  bool _probando = false;
+  String? _resultadoPrueba;
+
   @override
   void dispose() {
     _actual.dispose();
@@ -31,25 +36,48 @@ class _PerfilVistaState extends State<PerfilVista> {
     if (!_formulario.currentState!.validate()) return;
 
     final sesion = context.read<SesionVm>();
-    final mensajero = ScaffoldMessenger.of(context);
     final ok = await sesion.cambiarPassword(
       actual: _actual.text,
       nueva: _nueva.text,
     );
 
-    mensajero.showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Contraseña actualizada.'
-              : sesion.error ?? 'No se pudo cambiar la contraseña.',
-        ),
-      ),
+    Mensajes.mostrar(
+      ok
+          ? 'Contraseña actualizada.'
+          : sesion.error ?? 'No se pudo cambiar la contraseña.',
     );
     if (ok) {
       _actual.clear();
       _nueva.clear();
     }
+  }
+
+  /// Comprueba que la app alcanza el backend. En la demo es lo primero que
+  /// conviene saber cuando una pantalla no carga: si falla aquí, el
+  /// problema es de red o de la IP, no de la sesión.
+  Future<void> _probarConexion() async {
+    final api = context.read<SensaApi>();
+    setState(() {
+      _probando = true;
+      _resultadoPrueba = null;
+    });
+
+    String resultado;
+    try {
+      final ok = await api.salud();
+      resultado = ok
+          ? 'El servidor respondió bien.'
+          : 'El servidor respondió, pero no se reconoce la respuesta.';
+    } catch (e) {
+      resultado = 'No se pudo conectar. Revisa que uvicorn esté corriendo y '
+          'que el teléfono esté en la misma red.';
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _probando = false;
+      _resultadoPrueba = resultado;
+    });
   }
 
   @override
@@ -126,10 +154,44 @@ class _PerfilVistaState extends State<PerfilVista> {
             icon: const Icon(Icons.logout_rounded, size: 18),
             label: const Text('Salir de la sesión'),
           ),
-          const SizedBox(height: 22),
-          Text(
-            'Servidor: ${Config.apiBaseUrl}',
-            style: const TextStyle(fontSize: 11.5, color: ColoresSensa.tintaTenue),
+          const SizedBox(height: 26),
+          Tarjeta(
+            relleno: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+            hijo: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Conexión con el servidor',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _probando ? null : _probarConexion,
+                      child: Text(_probando ? 'Probando...' : 'Probar'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(Config.apiBaseUrl, style: _tenue),
+                if (_resultadoPrueba != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _resultadoPrueba!,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      height: 1.45,
+                      color: ColoresSensa.tinta,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),

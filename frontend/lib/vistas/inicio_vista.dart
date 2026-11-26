@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../vistamodelos/sesion_vm.dart';
 import 'admin_panel_vista.dart';
+import 'historial_vista.dart';
 import 'negocios_vista.dart';
 import 'reporte_vista.dart';
 import 'sensores_vista.dart';
@@ -28,10 +29,11 @@ class _InicioVistaState extends State<InicioVista> {
         ? const <Widget>[
             AdminPanelVista(),
             SensoresVista(),
+            HistorialVista(),
             NegociosVista(),
             UsuariosVista(),
           ]
-        : const <Widget>[SensoresVista(), ReporteVista()];
+        : const <Widget>[SensoresVista(), ReporteVista(), HistorialVista()];
 
     final destinos = esAdmin
         ? const <NavigationDestination>[
@@ -44,6 +46,10 @@ class _InicioVistaState extends State<InicioVista> {
               icon: Icon(Icons.sensors_outlined),
               selectedIcon: Icon(Icons.sensors),
               label: 'Sensores',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.history_rounded),
+              label: 'Historial',
             ),
             NavigationDestination(
               icon: Icon(Icons.store_outlined),
@@ -66,6 +72,10 @@ class _InicioVistaState extends State<InicioVista> {
               icon: Icon(Icons.insert_chart_outlined),
               selectedIcon: Icon(Icons.insert_chart),
               label: 'Reporte',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.history_rounded),
+              label: 'Historial',
             ),
           ];
 

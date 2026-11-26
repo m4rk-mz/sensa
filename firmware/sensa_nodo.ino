@@ -5,16 +5,21 @@
 // aplica. La alerta de temperatura se da en el lugar con el LED rojo y el
 // zumbador, según el umbral guardado, aunque no haya backend.
 //
-// LEDs: nunca hay dos prendidos a la vez. Prioridad:
-//   rojo     -> LED de alerta encendido (automático sobre el umbral, o forzado)
-//   amarillo -> modo manual
-//   verde    -> en línea y sin alerta
-//   verde parpadeando -> sin conexión con el backend
+// LEDs: nunca hay dos prendidos a la vez. Funcionan como semáforo:
+//   rojo     -> alerta: la temperatura pasó el umbral
+//   amarillo -> cerca: a MARGEN_AVISO °C o menos del umbral (o modo manual)
+//   verde    -> normal
+//   parpadeando (verde o amarillo) -> sin conexión con el backend
+//
+// Antes el amarillo solo marcaba el modo manual, y como la app deja el LED
+// siempre en automático, nunca se prendía.
 //
 // Comandos de la app además del LED:
 //   alerta       -> beeps en el zumbador con el rojo prendido
 //   probar_leds  -> rojo, amarillo y verde, uno por uno (también al arrancar)
 // Por el monitor serie (115200): "a" manda la alerta y "p" prueba los LEDs.
+// "1", "2" y "3" prenden fijo 3 s el rojo, el amarillo y el verde, para
+// revisar el cableado de cada uno.
 //
 // Configuración: crear firmware/secrets.h a partir de secrets.example.h.
 // Ese archivo NO va al repo (está en .gitignore).
@@ -65,6 +70,13 @@ const float HUM_MIN  = 20.0, HUM_MAX  = 90.0;
 
 const float UMBRAL_POR_OMISION = 27.0;  // solo para el primer arranque
 
+// Amarillo: la temperatura está a este margen o menos debajo del umbral.
+// Con umbral 24.0 °C, el amarillo se prende desde 23.0 °C.
+const float MARGEN_AVISO = 1.0;
+
+// Prueba de un LED desde el monitor serie.
+const unsigned long T_LED_FIJO = 3000;
+
 DHT dht(PIN_DHT, TIPO_DHT);
 Preferences prefs;
 
@@ -82,6 +94,7 @@ bool  tieneLectura = false;               // ya hay una lectura válida
 float ultimaTemp   = 0.0;
 float ultimaHum    = 0.0;
 bool  alerta       = false;               // temperatura local > umbral
+bool  cerca        = false;               // a MARGEN_AVISO o menos del umbral
 
 bool  backendOk        = false;  // la última petición salió bien
 bool  tieneRemoto      = false;  // ya recibimos algo del backend
@@ -98,11 +111,12 @@ bool  alertaEnviada = false;
 
 // Efectos de un momento: mientras corren mandan sobre los LEDs y el
 // zumbador, y se pausa la red para que los tiempos salgan parejos.
-enum Efecto { SIN_EFECTO, EFECTO_ALERTA, EFECTO_PRUEBA };
+enum Efecto { SIN_EFECTO, EFECTO_ALERTA, EFECTO_PRUEBA, EFECTO_FIJO };
 // Los enums van antes de cualquier función: el Arduino IDE genera los
 // prototipos arriba de la primera y deben ver estos tipos.
 enum Luz { NINGUNA, ROJO, AMARILLO, VERDE };
 Efecto        efecto       = SIN_EFECTO;
+Luz           luzFija      = NINGUNA;  // para EFECTO_FIJO
 unsigned long efectoInicio = 0;
 String        ackPendiente = "";  // se confirma al terminar el efecto
 String        ultimoComandoId = "";
@@ -114,6 +128,12 @@ unsigned long tSensor = 0, tComando = 0, tLectura = 0, tWifi = 0;
 bool lecturaValida(float t, float h) {
   if (isnan(t) || isnan(h)) return false;
   return t >= TEMP_MIN && t <= TEMP_MAX && h >= HUM_MIN && h <= HUM_MAX;
+}
+
+// Alerta (rojo) y cerca del umbral (amarillo), con el umbral guardado.
+void calcularAlerta() {
+  alerta = tieneLectura && ultimaTemp > umbralC;
+  cerca  = tieneLectura && !alerta && ultimaTemp >= umbralC - MARGEN_AVISO;
 }
 
 void leerSensor() {
@@ -128,8 +148,9 @@ void leerSensor() {
   ultimaTemp = t;
   ultimaHum = h;
   tieneLectura = true;
-  alerta = ultimaTemp > umbralC;
+  calcularAlerta();
 }
+
 
 // ---------- Decisión del LED ----------
 
@@ -193,15 +214,26 @@ void actualizarSalidas() {
     efecto = SIN_EFECTO;
   }
 
+  if (efecto == EFECTO_FIJO) {
+    if (t < T_LED_FIJO) {
+      mostrarLuz(luzFija);
+      zumbador(false);
+      return;
+    }
+    efecto = SIN_EFECTO;
+  }
+
   Luz luz;
-  if (ledEstado) {
+  // En automático el rojo también sigue a la lectura local: así se prende
+  // en cuanto el sensor pasa el umbral, sin esperar la respuesta del
+  // backend (que tarda hasta 1 s en llegar con la siguiente consulta).
+  if (ledEstado || (alerta && !modoManual)) {
     luz = ROJO;
-  } else if (modoManual) {
-    luz = AMARILLO;
-  } else if (backendOk) {
-    luz = VERDE;
   } else {
-    luz = ((ahora / T_PARPADEO) % 2 == 0) ? VERDE : NINGUNA;
+    Luz base = (modoManual || cerca) ? AMARILLO : VERDE;
+    // Sin backend, la luz parpadea para avisar que no hay conexión.
+    bool prendida = backendOk || (ahora / T_PARPADEO) % 2 == 0;
+    luz = prendida ? base : NINGUNA;
   }
   mostrarLuz(luz);
   zumbador(alerta);
@@ -290,7 +322,7 @@ void aplicarEstadoRemoto(JsonDocument& r) {
     umbralC = u;
     prefs.putFloat("umbral", umbralC);
     Serial.printf("Umbral actualizado: %.1f °C (guardado)\n", umbralC);
-    alerta = tieneLectura && ultimaTemp > umbralC;
+    calcularAlerta();
   }
 }
 
@@ -327,9 +359,10 @@ void enviarLectura() {
   if (deserializeJson(r, resp)) return;
   aplicarEstadoRemoto(r);
 
-  Serial.printf("Enviado: %.1f C, %.0f %% HR, LED %s, modo %s, alerta %s\n",
+  Serial.printf("Enviado: %.1f C, %.0f %% HR, LED %s, modo %s, %s\n",
                 ultimaTemp, ultimaHum, ledEstado ? "on" : "off",
-                modoManual ? "manual" : "automatico", alerta ? "si" : "no");
+                modoManual ? "manual" : "automatico",
+                alerta ? "ALERTA (rojo)" : (cerca ? "cerca (amarillo)" : "normal (verde)"));
 }
 
 void enviarAck(const String& id, const char* accion) {
@@ -390,6 +423,14 @@ void leerSerie() {
     } else if (c == 'p' || c == 'P') {
       Serial.println("Prueba de LEDs desde el monitor serie");
       iniciarEfecto(EFECTO_PRUEBA);
+    } else if (c >= '1' && c <= '3') {
+      const Luz luces[3] = {ROJO, AMARILLO, VERDE};
+      const char* nombres[3] = {"rojo (GPIO 25)", "amarillo (GPIO 26)", "verde (GPIO 27)"};
+      int i = c - '1';
+      Serial.printf("LED %s fijo 3 s. Si no prende, revisa ese cable, la "
+                    "resistencia y que la pata larga vaya al GPIO.\n", nombres[i]);
+      luzFija = luces[i];
+      iniciarEfecto(EFECTO_FIJO);
     }
   }
 }

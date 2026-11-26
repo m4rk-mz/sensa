@@ -39,6 +39,8 @@ class ApiCliente {
   Future<dynamic> patch(String ruta, {Object? cuerpo}) =>
       _enviar('PATCH', ruta, cuerpo: cuerpo);
 
+  Future<dynamic> delete(String ruta) => _enviar('DELETE', ruta);
+
   Future<dynamic> _enviar(
     String metodo,
     String ruta, {
@@ -117,13 +119,43 @@ class ApiCliente {
     );
   }
 
+  /// Textos genéricos de FastAPI/Starlette, en inglés. No dicen nada útil a
+  /// quien usa la app, así que se cambian por el mensaje del código.
+  static const Set<String> _detallesGenericos = {
+    'Not Found',
+    'Method Not Allowed',
+    'Internal Server Error',
+    'Unauthorized',
+    'Forbidden',
+  };
+
+  static const String _backendDesactualizado =
+      'El servidor todavía no tiene esta función. Actualiza el backend a la '
+      'última versión y reinícialo.';
+
   String _mensaje(int estado, dynamic datos) {
     if (datos is Map) {
       final detalle = datos['detail'];
-      if (detalle is String && detalle.isNotEmpty) return detalle;
+      if (detalle is String &&
+          detalle.isNotEmpty &&
+          !_detallesGenericos.contains(detalle)) {
+        return detalle;
+      }
       if (detalle is List && detalle.isNotEmpty) return 'Hay datos inválidos.';
     }
+    // "Not Found" a secas lo pone FastAPI cuando la RUTA no existe. Los 404
+    // de un registro que no existe los manda el backend en español
+    // ("Recurso no encontrado."), así que aquí la que falta es la función.
+    if (estado == 404 && datos is Map && datos['detail'] == 'Not Found') {
+      return _backendDesactualizado;
+    }
     switch (estado) {
+      // 405: la ruta existe pero el servidor no acepta ese método. Pasa
+      // cuando la app es más nueva que el backend que está corriendo.
+      case 405:
+        return _backendDesactualizado;
+      case 500:
+        return 'El servidor tuvo un error. Revisa la consola de uvicorn.';
       case 401:
         return 'Tu sesión expiró. Vuelve a iniciar sesión.';
       case 403:

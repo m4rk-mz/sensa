@@ -74,6 +74,12 @@ class SensorEstado {
   bool get esManual => modo == 'manual';
   bool get sinDatos => temperatura == null || !enLinea;
 
+  /// Todo lo que la pantalla pinta de este sensor, en un texto. Si dos
+  /// respuestas tienen la misma firma no hace falta redibujar nada.
+  String get firma => '${sensor.id}|${sensor.nombre}|${sensor.umbralC}|'
+      '$temperatura|$humedad|$alerta|$enLinea|$modo|'
+      '${ultimaLecturaEn?.millisecondsSinceEpoch}';
+
   factory SensorEstado.desdeJson(Map<String, dynamic> json) => SensorEstado(
         sensor: Sensor.desdeJson(J.mapa(json['sensor'])),
         temperatura: J.decimalNulo(json['temperatura']),

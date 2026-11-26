@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'core/api_cliente.dart';
 import 'core/config.dart';
+import 'core/mensajes.dart';
 import 'servicios/sensa_api.dart';
 import 'tema.dart';
 import 'vistamodelos/sesion_vm.dart';
@@ -49,6 +50,7 @@ class _SensaAppState extends State<SensaApp> {
       ],
       child: MaterialApp(
         title: 'Sensa',
+        scaffoldMessengerKey: Mensajes.llave,
         debugShowCheckedModeBanner: false,
         theme: temaSensa(),
         home: const _Puerta(),

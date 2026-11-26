@@ -45,6 +45,12 @@ class UsuarioAltaEntrada(EntradaModel):
         return _validar_password_con_letra_y_numero(v)
 
 
+class UsuarioEstadoEntrada(EntradaModel):
+    """Alta o baja de un usuario (solo el administrador de plataforma)."""
+
+    activo: bool
+
+
 class CambioPasswordEntrada(EntradaModel):
     password_actual: str = Field(min_length=1, max_length=128)
     password_nueva: str = PASSWORD

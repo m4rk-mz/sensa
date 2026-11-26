@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/formato.dart';
+import '../core/mensajes.dart';
 import '../modelos/sensor.dart';
 import '../servicios/sensa_api.dart';
 import '../tema.dart';
@@ -24,7 +25,7 @@ class SensoresVista extends StatelessWidget {
     return ChangeNotifierProvider<SensoresVm>(
       create: (_) => SensoresVm(api, esAdmin: esAdmin)
         ..cargar()
-        ..iniciarRefresco(),
+        ..iniciar(),
       child: const _Cuerpo(),
     );
   }
@@ -36,6 +37,7 @@ class _Cuerpo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<SensoresVm>();
+    final esAdmin = context.read<SesionVm>().esAdmin;
 
     return RefreshIndicator(
       onRefresh: () => vm.cargar(),
@@ -51,8 +53,12 @@ class _Cuerpo extends StatelessWidget {
           const SizedBox(height: 18),
 
           if (vm.error != null) ...[
-            CajaError(mensaje: vm.error!, alReintentar: () => vm.cargar()),
-            const SizedBox(height: 18),
+            CajaError(
+              key: const ValueKey('error'),
+              mensaje: vm.error!,
+              alReintentar: () => vm.cargar(),
+            ),
+            const SizedBox(key: ValueKey('error-espacio'), height: 18),
           ],
 
           if (vm.cargando && vm.sensores.isEmpty)
@@ -72,11 +78,17 @@ class _Cuerpo extends StatelessWidget {
             ),
 
           for (final sensor in vm.sensores) ...[
+            // Llave por sensor: al borrar uno o al aparecer la caja de
+            // error, las demás tarjetas se reacomodan en vez de rehacerse.
             TarjetaSensor(
+              key: ValueKey('sensor-${sensor.id}'),
               estado: sensor,
               alAbrir: () => _abrir(context, sensor),
+              alEliminar: esAdmin && !vm.eliminandoA(sensor.id)
+                  ? () => _eliminar(context, sensor, vm)
+                  : null,
             ),
-            const SizedBox(height: 14),
+            SizedBox(key: ValueKey('espacio-${sensor.id}'), height: 14),
           ],
         ],
       ),
@@ -87,7 +99,7 @@ class _Cuerpo extends StatelessWidget {
     if (vm.sensores.isEmpty) return null;
     final partes = <String>[
       if (vm.enAlerta > 0) '${vm.enAlerta} en alerta',
-      '${vm.sensores.length - vm.enAlerta} sin alerta',
+      if (vm.normales > 0) '${vm.normales} ${vm.normales == 1 ? 'normal' : 'normales'}',
       if (vm.sinDatos > 0) '${vm.sinDatos} sin datos',
     ];
     return partes.join(' · ');
@@ -97,26 +109,75 @@ class _Cuerpo extends StatelessWidget {
     final api = context.read<SensaApi>();
     final vm = context.read<SensoresVm>();
 
+    // Mientras el detalle está abierto, la lista deja de pedir datos: no se
+    // ve y solo serviría para competir por la red con la pantalla de enfrente.
+    vm.detenerRefresco();
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ChangeNotifierProvider<SensorDetalleVm>(
           create: (_) => SensorDetalleVm(api: api, deviceId: sensor.id)
-            ..cargar()
-            ..iniciarRefresco(),
+            ..iniciar(),
           child: SensorDetalleVista(nombreInicial: sensor.nombre),
         ),
       ),
     );
+    vm.iniciar();
     await vm.cargar(silencioso: true);
+  }
+
+  /// Borra un sensor. Pide confirmación porque no tiene vuelta atrás: se va
+  /// con sus lecturas, sus comandos y sus reportes.
+  Future<void> _eliminar(
+    BuildContext context,
+    SensorEstado sensor,
+    SensoresVm vm,
+  ) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogo) => AlertDialog(
+        title: Text('¿Eliminar "${sensor.nombre}"?'),
+        content: const Text(
+          'Se borra el sensor junto con sus lecturas, sus comandos y sus '
+          'reportes. Esto no se puede deshacer.',
+          style: TextStyle(fontSize: 13.5, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogo).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: ColoresSensa.ambar,
+              minimumSize: const Size(0, 44),
+            ),
+            onPressed: () => Navigator.of(dialogo).pop(true),
+            child: const Text('Sí, eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) return;
+
+    final error = await vm.eliminar(sensor);
+    Mensajes.mostrar(error ?? 'Se eliminó "${sensor.nombre}".');
   }
 }
 
 /// Tarjeta de un sensor en la lista.
 class TarjetaSensor extends StatelessWidget {
-  const TarjetaSensor({super.key, required this.estado, required this.alAbrir});
+  const TarjetaSensor({
+    super.key,
+    required this.estado,
+    required this.alAbrir,
+    this.alEliminar,
+  });
 
   final SensorEstado estado;
   final VoidCallback alAbrir;
+
+  /// Solo el administrador de plataforma puede borrar un sensor.
+  final VoidCallback? alEliminar;
 
   @override
   Widget build(BuildContext context) {
@@ -193,8 +254,19 @@ class TarjetaSensor extends StatelessWidget {
               const Spacer(),
               TextButton(
                 onPressed: alAbrir,
-                child: const Text('Ver y controlar'),
+                child: const Text('Ver detalle'),
               ),
+              if (alEliminar != null)
+                IconButton(
+                  tooltip: 'Eliminar sensor',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 20,
+                    color: ColoresSensa.tintaTenue,
+                  ),
+                  onPressed: alEliminar,
+                ),
             ],
           ),
         ],
@@ -210,10 +282,6 @@ class TarjetaSensor extends StatelessWidget {
     if (estado.alerta) {
       return 'Pasó el umbral de ${estado.umbralC.toStringAsFixed(1)} °C. El '
           'nodo lo está avisando en el lugar con el LED rojo y el zumbador.';
-    }
-    if (estado.esManual) {
-      return 'En modo manual: el LED está forzado desde la app. Vuelve a '
-          'automático ${Formato.faltanPara(estado.modoManualHasta)}.';
     }
     return 'En automático, bajo el umbral de '
         '${estado.umbralC.toStringAsFixed(1)} °C.';

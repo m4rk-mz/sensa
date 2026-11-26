@@ -1,8 +1,8 @@
 # Sensa — App móvil (Flutter, MVVM)
 
 App de Sensa para las dos cuentas del proyecto: el **usuario del negocio**
-(sus sensores, control del LED y reporte del día) y el **administrador de
-plataforma** (panel, negocios y promoción de usuarios).
+(sus sensores, acciones en el nodo y reporte del día) y el **administrador
+de plataforma** (panel, negocios y promoción de usuarios).
 
 Habla con el backend de `../backend` usando el contrato de
 `claude/Sensa_backend_contrato.md`. La app no decide permisos: el rol lo
@@ -141,15 +141,19 @@ Reglas que se respetan en todo el código:
 1. **Login** — una sola puerta; según el rol la app abre en sensores o en el
    panel.
 2. **Mis sensores** — tarjeta por nodo con lectura, estado (alerta, sin
-   alerta, sin datos) y acceso al detalle. Se refresca cada 15 s.
-3. **Detalle del sensor** — aviso de alerta con el umbral y la hora,
-   temperatura y humedad, la tarjeta **"Lo que se ve en el nodo"**, control
-   del LED (automático / encender / apagar) con el estado del comando
-   (`pendiente`, `enviado`, `confirmado`, `sin_respuesta`) y el umbral
-   editable. Se refresca cada 10 s.
+   alerta, sin datos) y acceso al detalle. Se refresca cada 5 s.
+3. **Detalle del sensor** — la temperatura en grande con su estado y
+   cuándo llegó, humedad y umbral, **acciones en el nodo** (mandar alerta y
+   probar LEDs) con el estado del comando (`pendiente`, `enviado`,
+   `confirmado`, `sin_respuesta`), el umbral editable y la tabla de
+   **lecturas registradas**, como se ven en la tabla `readings`. Se refresca
+   cada 2 s (la tabla cada 6 s).
 4. **Reporte del día** — mínima, promedio y máxima, gráfica de la
    temperatura por hora con la línea del umbral, alertas y veces que se
-   encendió el LED.
+   encendió el LED. Botón **Generar** para guardar el reporte de hoy al
+   momento, sin esperar a la tarea de las 00:10.
+5. **Tu cuenta** — cambio de contraseña, salir y una prueba de conexión con
+   el servidor, útil cuando una pantalla no carga.
 
 **Administrador de plataforma**
 
@@ -157,27 +161,41 @@ Reglas que se respetan en todo el código:
    tabla por negocio, más cuántas lecturas inválidas se descartaron en 24 h
    (la evidencia de la prueba 5). Incluye un botón para disparar el reporte
    diario sin esperar las 00:10.
-2. **Sensores** — los de todos los negocios.
+2. **Sensores** — los de todos los negocios, cada uno con la opción de
+   **eliminarlo** (se va con sus lecturas, comandos y reportes; pide
+   confirmación). Sirve para limpiar nodos de prueba que ya no existen.
 3. **Negocios** — lista, alta (con primer usuario opcional) y registro de
    nodos; el token del nodo se muestra **una sola vez**.
-4. **Usuarios** — filtro por negocio y promoción a administrador con
-   diálogo de confirmación.
+4. **Usuarios** — filtro por negocio, promoción a administrador y
+   **dar de baja o reactivar** usuarios, con diálogo de confirmación. Dar de
+   baja no borra nada: le quita el acceso y su sesión abierta deja de valer.
 
-## "Lo que se ve en el nodo"
+## El LED va siempre en automático
 
-`modelos/lineas_lcd.dart` arma el mismo texto que el firmware escribe en la
-LCD 1602, y `vistas/widgets/lcd_nodo.dart` lo pinta:
+La app ya no enciende ni apaga el LED a mano. El nodo lo decide solo con el
+umbral del sensor, así que sigue avisando aunque se quede sin red, y no hay
+forma de dejarlo forzado por error. Si un sensor quedó en modo manual de una
+versión anterior, el detalle le manda `auto` una vez al abrirlo.
 
-```
-Sin alerta        En alerta (alterna cada 3 s)
-T:24.1C H:52%     !ALERTA! 29.4C     T:29.4C H:58%
-AUTO    LED:OFF   Umbral 27.0C       AUTO    LED:ON
-```
+El backend sigue aceptando `led_on`, `led_off` y `auto`: el contrato no
+cambia y el flujo IoT completo (comando -> ack) se demuestra con **mandar
+alerta** y **probar LEDs**.
 
-Cada renglón cabe en 16 columnas, y hay pruebas que lo verifican. Si el
-firmware cambia ese texto, hay que cambiarlo aquí también: es lo único que
-la app duplica a propósito, para que coincida con lo que ve quien está
-frente al equipo.
+## Refrescos y rendimiento
+
+- El detalle pide una sola cosa por vuelta (`GET /devices/{id}`); el último
+  comando solo se pide al abrir la pantalla y después de mandar una acción.
+- Al abrir el detalle, la lista deja de refrescarse; se reanuda al volver.
+- Con la app en segundo plano se detienen todos los refrescos y se reanudan
+  al volver al frente (`VmConRefresco` en `vistamodelos/base_vm.dart`).
+
+## Avisos de abajo (SnackBar)
+
+Van por `core/mensajes.dart`, que guarda la llave del `ScaffoldMessenger`
+del `MaterialApp`. Antes cada pantalla llamaba `ScaffoldMessenger.of(context)`,
+a veces después de un `await`; si para entonces ese widget ya no estaba en el
+árbol, Flutter tiraba la pantalla roja con
+`'_dependents.isEmpty': is not true`. Con la llave no hace falta contexto.
 
 ## Pruebas
 
@@ -186,7 +204,6 @@ flutter test
 ```
 
 - `test/validaciones_test.dart` — las reglas de los formularios.
-- `test/lineas_lcd_test.dart` — el texto de la LCD y el límite de 16
-  columnas.
-- `test/modelos_test.dart` — lectura de las respuestas del backend, con
-  campos nulos incluidos.
+- `test/modelos_test.dart` — lectura de las respuestas del backend (con
+  campos nulos) y las acciones del nodo: `alerta` y `probar_leds` no son
+  comandos del LED.

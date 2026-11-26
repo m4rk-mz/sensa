@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.deps import IdRuta, admin_actual
 from app.models.common import UUID_REGEX
 from app.models.report import PanelAdminSalida, PuntoGrafica, ReporteDiario
-from app.models.user import Usuario, UsuarioSalida
+from app.models.user import Usuario, UsuarioEstadoEntrada, UsuarioSalida
 from app.repositories import users as repo_users
 from app.services import daily_report as servicio_reporte
 from app.services import stats as servicio_stats
@@ -56,6 +56,38 @@ def promover(
             detail="No se pudo promover al usuario.",
         )
     return UsuarioSalida.de(promovido)
+
+
+@router.patch("/users/{user_id}", response_model=UsuarioSalida)
+def cambiar_estado_usuario(
+    user_id: IdRuta,
+    datos: UsuarioEstadoEntrada,
+    admin: Usuario = Depends(admin_actual),
+) -> UsuarioSalida:
+    """Da de baja o reactiva a un usuario.
+
+    No borra nada: un usuario dado de baja no puede iniciar sesión y su
+    sesión abierta deja de valer, porque el rol y el estado se releen de la
+    BD en cada petición.
+    """
+    if user_id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No puedes darte de baja a ti mismo.",
+        )
+    objetivo = repo_users.por_id(user_id)
+    if objetivo is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado."
+        )
+
+    actualizado = repo_users.fijar_activo(user_id, datos.activo)
+    if actualizado is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo actualizar al usuario.",
+        )
+    return UsuarioSalida.de(actualizado)
 
 
 @router.get("/stats/negocios", response_model=PanelAdminSalida)
