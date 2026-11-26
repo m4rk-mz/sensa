@@ -21,14 +21,17 @@ umbral guardado en memoria.
 La conexión HTTP se reutiliza entre peticiones y el WiFi va sin ahorro de
 energía (`WiFi.setSleep(false)`): las dos cosas bajan mucho la latencia.
 
-## LEDs: siempre uno a la vez
+## LEDs: siempre uno a la vez, como semáforo
 
 | Luz | Cuándo |
 |---|---|
-| Rojo | LED de alerta encendido (automático sobre el umbral, o forzado en manual) |
-| Amarillo | Modo manual con el LED apagado |
-| Verde fijo | En línea y sin alerta |
-| Verde parpadeando | Sin respuesta del backend |
+| Rojo | Alerta: la temperatura pasó el umbral (se prende con la lectura local, sin esperar al backend) |
+| Amarillo | Cerca: a 1 °C o menos debajo del umbral (`MARGEN_AVISO`), o modo manual |
+| Verde | Normal |
+| Verde o amarillo parpadeando | Sin respuesta del backend |
+
+Antes el amarillo solo marcaba el modo manual; como la app deja el LED
+siempre en automático, nunca se prendía.
 
 `mostrarLuz()` es la única función que escribe los LEDs: apaga los otros dos
 antes de prender uno.
@@ -44,7 +47,9 @@ Ninguna cambia el modo ni el estado del LED. El `ack` sale al terminar. Mientras
 corren, el nodo no usa la red para que los tiempos salgan parejos. La prueba de
 LEDs también corre al arrancar.
 
-Desde el monitor serie (115200): `a` = alerta, `p` = prueba de LEDs.
+Desde el monitor serie (115200): `a` = alerta, `p` = prueba de LEDs, y
+`1`, `2`, `3` = rojo, amarillo y verde fijos 3 s, para revisar el cableado de
+uno en uno.
 
 El zumbador también suena fijo mientras la temperatura esté sobre el umbral.
 
