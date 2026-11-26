@@ -25,6 +25,25 @@ void main() {
     expect(find.text('26.3 °C'), findsOneWidget);
   });
 
+  // Al cambiar el umbral la alerta se prende o se apaga. La tarjeta debe
+  // conservar su contenido (mismo estado) en vez de rehacerlo.
+  testWidgets('prender y apagar la alerta no rehace el contenido',
+      (tester) async {
+    Widget tarjeta(Color? borde) => MaterialApp(
+          home: Scaffold(
+            body: Tarjeta(borde: borde, hijo: const _Contador()),
+          ),
+        );
+
+    await tester.pumpWidget(tarjeta(ColoresSensa.ambar));
+    final antes = tester.state(find.byType(_Contador));
+    await tester.pumpWidget(tarjeta(null));
+    await tester.pumpWidget(tarjeta(ColoresSensa.ambar));
+
+    expect(tester.takeException(), isNull);
+    expect(tester.state(find.byType(_Contador)), same(antes));
+  });
+
   test('la firma cambia solo si cambia lo que se ve', () {
     Map<String, dynamic> json(double temp) => <String, dynamic>{
           'sensor': <String, dynamic>{
@@ -47,4 +66,16 @@ void main() {
     expect(a.firma, b.firma);
     expect(a.firma, isNot(c.firma));
   });
+}
+
+class _Contador extends StatefulWidget {
+  const _Contador();
+
+  @override
+  State<_Contador> createState() => _ContadorEstado();
+}
+
+class _ContadorEstado extends State<_Contador> {
+  @override
+  Widget build(BuildContext context) => const Text('contenido');
 }

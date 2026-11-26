@@ -41,27 +41,43 @@ class SensorDetalleVista extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
           children: [
+            // Cada tarjeta lleva llave: si aparece o se quita la caja de
+            // error arriba, la lista reacomoda las tarjetas en vez de
+            // destruirlas y crearlas otra vez por posición.
             if (vm.error != null) ...[
-              CajaError(mensaje: vm.error!, alReintentar: () => vm.cargar()),
-              const SizedBox(height: 16),
+              CajaError(
+                key: const ValueKey('error'),
+                mensaje: vm.error!,
+                alReintentar: () => vm.cargar(),
+              ),
+              const SizedBox(key: ValueKey('error-espacio'), height: 16),
             ],
 
             if (estado == null)
               const Padding(
+                key: ValueKey('cargando'),
                 padding: EdgeInsets.only(top: 60),
                 child: Center(child: CircularProgressIndicator()),
               )
             else ...[
-              _TarjetaLectura(vm: vm, estado: estado),
+              _TarjetaLectura(
+                key: const ValueKey('lectura'),
+                vm: vm,
+                estado: estado,
+              ),
               const SizedBox(height: 13),
 
-              _TarjetaAcciones(vm: vm, estado: estado),
+              _TarjetaAcciones(
+                key: const ValueKey('acciones'),
+                vm: vm,
+                estado: estado,
+              ),
               const SizedBox(height: 13),
 
-              _TarjetaLecturas(vm: vm),
+              _TarjetaLecturas(key: const ValueKey('lecturas'), vm: vm),
               const SizedBox(height: 16),
 
-              const _NotaAutomatico(),
+              const _NotaAutomatico(key: ValueKey('nota')),
             ],
           ],
         ),
@@ -72,7 +88,7 @@ class SensorDetalleVista extends StatelessWidget {
 
 /// Tarjeta principal: la lectura grande, con el estado y cuándo llegó.
 class _TarjetaLectura extends StatelessWidget {
-  const _TarjetaLectura({required this.vm, required this.estado});
+  const _TarjetaLectura({super.key, required this.vm, required this.estado});
 
   final SensorDetalleVm vm;
   final SensorEstado estado;
@@ -226,17 +242,15 @@ class _Medida extends StatelessWidget {
     return Align(
       alignment:
           alineadoAlFinal ? Alignment.centerRight : Alignment.centerLeft,
-      // Material transparente: sin él, el efecto al tocar se pinta debajo
-      // del fondo blanco de la tarjeta y no se ve.
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: alTocar,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            child: contenido,
-          ),
+      // Un GestureDetector simple: el lápiz ya dice que se puede tocar, y
+      // no mete Material, Focus ni Actions dentro de la tarjeta, que se
+      // reconstruye cada vez que cambia la lectura.
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: alTocar,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: contenido,
         ),
       ),
     );
@@ -328,7 +342,7 @@ class _AvisoAlerta extends StatelessWidget {
 
 /// Acciones de un momento en el nodo: alerta con beeps y prueba de LEDs.
 class _TarjetaAcciones extends StatelessWidget {
-  const _TarjetaAcciones({required this.vm, required this.estado});
+  const _TarjetaAcciones({super.key, required this.vm, required this.estado});
 
   final SensorDetalleVm vm;
   final SensorEstado estado;
@@ -523,13 +537,28 @@ Future<void> _editarUmbral(
   SensorDetalleVm vm,
   SensorEstado estado,
 ) async {
+  // Mientras el diálogo está abierto, el detalle deja de refrescarse: si
+  // no, la pantalla de abajo se reconstruía cada 2 s con el teclado
+  // abriendo y cerrando encima.
+  vm.detenerRefresco();
   final nuevo = await showDialog<String>(
     context: context,
     builder: (_) => _DialogoUmbral(inicial: estado.umbralC),
   );
-  if (nuevo == null) return;
+
+  // showDialog regresa en cuanto se toca el botón, pero el diálogo y el
+  // teclado todavía se están yendo. Se espera a que terminen antes de
+  // cambiar la pantalla de abajo (el umbral nuevo puede quitar o poner la
+  // alerta, y eso rehace media tarjeta).
+  await Future<void>.delayed(const Duration(milliseconds: 300));
+
+  if (nuevo == null) {
+    vm.reanudarRefresco();
+    return;
+  }
 
   final ok = await vm.cambiarUmbral(nuevo);
+  vm.reanudarRefresco();
   Mensajes.mostrar(
     ok
         ? 'Umbral actualizado. El nodo lo recibe en su próxima lectura.'
@@ -568,8 +597,15 @@ class _DialogoUmbralEstado extends State<_DialogoUmbral> {
 
   void _guardar() {
     if (_formulario.currentState?.validate() ?? false) {
-      Navigator.of(context).pop(_controlador.text);
+      _cerrar(_controlador.text);
     }
+  }
+
+  /// Quita el foco antes de cerrar, para que el teclado empiece a irse
+  /// junto con el diálogo y no después.
+  void _cerrar([String? valor]) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.of(context).pop(valor);
   }
 
   @override
@@ -593,7 +629,7 @@ class _DialogoUmbralEstado extends State<_DialogoUmbral> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _cerrar,
           child: const Text('Cancelar'),
         ),
         FilledButton(onPressed: _guardar, child: const Text('Guardar')),
@@ -605,7 +641,7 @@ class _DialogoUmbralEstado extends State<_DialogoUmbral> {
 /// Las lecturas guardadas, como se ven en la tabla `readings` de la base.
 /// Se vuelve a pedir cada pocos segundos, así que la tabla crece sola.
 class _TarjetaLecturas extends StatelessWidget {
-  const _TarjetaLecturas({required this.vm});
+  const _TarjetaLecturas({super.key, required this.vm});
 
   final SensorDetalleVm vm;
 
@@ -736,7 +772,7 @@ class _FilaLectura extends StatelessWidget {
 
 /// Explica por qué ya no hay botones de encender y apagar.
 class _NotaAutomatico extends StatelessWidget {
-  const _NotaAutomatico();
+  const _NotaAutomatico({super.key});
 
   @override
   Widget build(BuildContext context) {

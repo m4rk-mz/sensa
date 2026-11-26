@@ -53,8 +53,12 @@ class _Cuerpo extends StatelessWidget {
           const SizedBox(height: 18),
 
           if (vm.error != null) ...[
-            CajaError(mensaje: vm.error!, alReintentar: () => vm.cargar()),
-            const SizedBox(height: 18),
+            CajaError(
+              key: const ValueKey('error'),
+              mensaje: vm.error!,
+              alReintentar: () => vm.cargar(),
+            ),
+            const SizedBox(key: ValueKey('error-espacio'), height: 18),
           ],
 
           if (vm.cargando && vm.sensores.isEmpty)
@@ -74,14 +78,17 @@ class _Cuerpo extends StatelessWidget {
             ),
 
           for (final sensor in vm.sensores) ...[
+            // Llave por sensor: al borrar uno o al aparecer la caja de
+            // error, las demás tarjetas se reacomodan en vez de rehacerse.
             TarjetaSensor(
+              key: ValueKey('sensor-${sensor.id}'),
               estado: sensor,
               alAbrir: () => _abrir(context, sensor),
               alEliminar: esAdmin && !vm.eliminandoA(sensor.id)
                   ? () => _eliminar(context, sensor, vm)
                   : null,
             ),
-            const SizedBox(height: 14),
+            SizedBox(key: ValueKey('espacio-${sensor.id}'), height: 14),
           ],
         ],
       ),

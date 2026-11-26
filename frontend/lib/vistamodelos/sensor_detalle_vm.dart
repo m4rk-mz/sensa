@@ -209,4 +209,11 @@ class SensorDetalleVm extends VmConRefresco {
     cargar(conComando: true, conLecturas: true);
     iniciarRefresco(Config.refrescoDetalle);
   }
+
+  /// Vuelve a refrescar después de una pausa (el diálogo del umbral). No
+  /// hace nada si la pantalla ya se cerró.
+  void reanudarRefresco() {
+    if (cerrado) return;
+    iniciarRefresco(Config.refrescoDetalle);
+  }
 }
